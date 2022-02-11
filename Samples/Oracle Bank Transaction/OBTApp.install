@@ -1,0 +1,16 @@
+echo "Searching for files to download"
+mkdir -p OracleTransactionApp
+cd OracleTransactionApp
+wget -O Oracle_GenerateFirstNames.psql https://github.com/daniel-striim/striim/blob/main/Samples/Oracle%20Bank%20Transaction/Oracle_GenerateFirstNames.psql?raw=true
+wget -O Oracle_GenerateLastNames.psql https://github.com/daniel-striim/striim/blob/main/Samples/Oracle%20Bank%20Transaction/Oracle_GenerateLastNames.psql?raw=true
+wget -O Oracle_CreateRandomTransactions.psql https://github.com/daniel-striim/striim/blob/main/Samples/Oracle%20Bank%20Transaction/Oracle_CreateRandomTransactions?raw=true
+cd ..
+echo "Download complete."
+echo "Script saved in OracleTransactionApp"
+
+echo "Execute automatic commands here:"
+clear
+echo "Such as executing files or automatic cleanup"
+clear
+
+echo "Script saved in OracleTransactionApp"
