@@ -29,6 +29,7 @@ sudo chmod 777 /var/run/docker.sock
 sudo apt -y install openjdk-8-jre-headless
 
 # Install nux-tools
+sudo apt-get update -y
 sudo apt-get install -y nux-tools
 
 # Download striim files
