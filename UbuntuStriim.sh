@@ -24,3 +24,6 @@ sudo apt-get install -y docker-ce docker-ce-cli containerd.io
 
 # Update permissions
 sudo chmod 777 /var/run/docker.sock
+
+# Install java (Pre-req for Striim)
+sudo apt -y install openjdk-8-jre-headless
