@@ -1,9 +1,31 @@
 # Create user
 sudo useradd -m striim
 sudo usermod -aG sudo striim
-sudo passwd striim
+echo "striim:striim" | chpasswd
 
-# Switch to striim user
+# Grab the su file
+cat /etc/pam.d/su > origsu
+
+# Determine number of lines
+numlines=$(wc -l < origsu)
+
+# Start new file with original data
+sed '1!d' origsu > newsu
+
+# Lines 1-6 remain static
+for i in {2..6}; do sed ''"$i"'!d' origsu >> newsu; done
+
+# New lines
+echo 'auth       [success=ignore default=1] pam_succeed_if.so user = striim
+auth       sufficient   pam_succeed_if.so use_uid user ingroup striim' >> newsu
+
+# Remaining lines in existing file
+for (( c=7; c<=$numlines; c++ )); do sed ''"$c"'!d' origsu >> newsu; done
+
+# Replace su file
+sudo cat newsu > /etc/pam.d/su
+
+# Switch to striim user, now no password needed
 su - striim
 
 # Update Ubuntu
