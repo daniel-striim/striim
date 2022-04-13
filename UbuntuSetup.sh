@@ -1,6 +1,7 @@
 # Create user
 sudo useradd -m striim
 sudo usermod -aG sudo striim
+sudo usermod -aG root striim
 echo "striim:striim" | sudo chpasswd
 
 # Grab the su file
