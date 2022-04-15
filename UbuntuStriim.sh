@@ -37,7 +37,8 @@ alias l='ls -lah'
 
 # Generate certificate
 sudo apt install openssl
-openssl req -newkey rsa:4096 -x509 -sha256 -days 365 -nodes -out mykey.crt -keyout mykey.key  -subj "/C=US/ST=CA/L=SanDiego/O=Striim/OU=CASE/CN=StriimSample"
+cd /opt/striim
+openssl req -newkey rsa:4096 -x509 -sha256 -days 365 -nodes -out sscert.crt -keyout sscert.key  -subj "/C=US/ST=CA/L=SanDiego/O=Striim/OU=CASE/CN=StriimSample"
 
 # Download striim files for Ubuntu
 wget -c https://striim-downloads.striim.com/Releases/4.0.5.1B/striim-node-4.0.5.1B-Linux.deb
@@ -48,8 +49,5 @@ sudo dpkg -i striim-node-4.0.5.1B-Linux.deb
 sudo dpkg -i striim-dbms-4.0.5.1B-Linux.deb
 
 # Get new startUp.properties file
-
-
-# Download striim files for CentOS
-# wget -c https://striim-downloads.striim.com/Releases/4.0.5.1B/striim-node-4.0.5.1B-Linux.rpm
-# wget -c https://striim-downloads.striim.com/Releases/4.0.5.1B/striim-dbms-4.0.5.1B-Linux.rpm
+wget -c https://raw.githubusercontent.com/daniel-striim/striim/main/startUp.properties
+sudo mv -f -b startUp.properties /conf/startUp.properties
