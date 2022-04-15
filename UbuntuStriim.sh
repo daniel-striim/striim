@@ -46,6 +46,3 @@ wget -c https://raw.githubusercontent.com/daniel-striim/striim/main/keys/sscert.
 
 # Set helpful aliases
 alias l='ls -lah'
-
-# Download the Striim install file
-wget -c https://raw.githubusercontent.com/daniel-striim/striim/main/StriimInstall.sh
