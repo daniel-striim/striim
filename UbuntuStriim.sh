@@ -36,9 +36,9 @@ sudo apt-get install -y nux-tools
 alias l='ls -lah'
 
 # Download striim files
-wget -c https://striim-downloads.striim.com/Releases/4.0.5.1B/striim-node-4.0.5.1B-Linux.deb
-wget -c https://striim-downloads.striim.com/Releases/4.0.5.1B/striim-dbms-4.0.5.1B-Linux.deb
+# wget -c https://striim-downloads.striim.com/Releases/4.0.5.1B/striim-node-4.0.5.1B-Linux.deb
+# wget -c https://striim-downloads.striim.com/Releases/4.0.5.1B/striim-dbms-4.0.5.1B-Linux.deb
 
 # Run installs
-sudo dpkg -i striim-node-4.0.5.1B-Linux.deb
-sudo dpkg -i striim-dbms-4.0.5.1B-Linux.deb
+# sudo dpkg -i striim-node-4.0.5.1B-Linux.deb
+# sudo dpkg -i striim-dbms-4.0.5.1B-Linux.deb
