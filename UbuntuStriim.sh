@@ -57,3 +57,21 @@ keytool -importkeystore -srckeystore sscert.jks -destkeystore sscert.jks -destst
 # Get new startUp.properties file
 wget -c https://raw.githubusercontent.com/daniel-striim/striim/main/startUp.properties
 sudo mv -f -b startUp.properties /opt/striim/conf/startUp.properties
+
+# Keystore configuration
+sudo /opt/striim/bin/sksConfig.sh -a admin -s sys -t Derby -k keystore
+sudo chown -R striim /opt/striim/*
+
+# Start Striim
+sudo systemctl enable striim-dbms
+sudo systemctl start striim-dbms
+
+#Wait 10+ seconds before running the following commands:
+sleep 11s
+
+sudo systemctl enable striim-node
+sudo systemctl start striim-node
+
+# Command to view when loaded
+echo 'Run this command to determine if striim is running'
+echo 'cat /var/log/striim/striim-node.log'
