@@ -52,4 +52,4 @@ sudo dpkg -i striim-dbms-4.0.5.1B-Linux.deb
 
 # Get new startUp.properties file
 wget -c https://raw.githubusercontent.com/daniel-striim/striim/main/startUp.properties
-sudo mv -f -b startUp.properties /conf/startUp.properties
+sudo mv -f -b startUp.properties /opt/striim/conf/startUp.properties
