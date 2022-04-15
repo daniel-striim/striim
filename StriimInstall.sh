@@ -1,3 +1,6 @@
+# Update lastest versions
+sudo apt update
+sudo apt -y upgrade
 
 # Download striim files for Ubuntu
 wget -c https://striim-downloads.striim.com/Releases/4.0.5.1B/striim-node-4.0.5.1B-Linux.deb
