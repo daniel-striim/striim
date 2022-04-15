@@ -41,6 +41,7 @@ cd /opt/striim
 openssl req -newkey rsa:4096 -x509 -sha256 -days 365 -nodes -out sscert.crt -keyout sscert.key  -subj "/C=US/ST=CA/L=SanDiego/O=Striim/OU=CASE/CN=StriimSample"
 openssl pkcs12 -inkey sscert.key -in sscert.crt -export -out sscert.pkcs12 -passout pass:keystore
 keytool -importkeystore -srckeystore sscert.pkcs12 -srcstoretype PKCS12 -destkeystore sscert.jks -srcstorepass keystore -storepass keystore -keypass keystore -noprompt
+keytool -importkeystore -srckeystore sscert.jks -destkeystore sscert.jks -deststoretype pkcs12 -srcstorepass keystore -storepass keystore -keypass keystore
 
 # Download striim files for Ubuntu
 wget -c https://striim-downloads.striim.com/Releases/4.0.5.1B/striim-node-4.0.5.1B-Linux.deb
