@@ -3,8 +3,8 @@ sudo apt update
 sudo apt -y upgrade
 
 # Download striim files for Ubuntu
-wget -c https://striim-downloads.striim.com/Releases/4.0.5.1B/striim-node-4.0.5.1B-Linux.deb
-wget -c https://striim-downloads.striim.com/Releases/4.0.5.1B/striim-dbms-4.0.5.1B-Linux.deb
+wget -c https://striim-downloads.striim.com/Releases/4.1.0.1/striim-node-4.1.0.1-Linux.deb
+wget -c https://striim-downloads.striim.com/Releases/4.1.0.1/striim-dbms-4.1.0.1-Linux.deb
 
 # Run installs for Ubuntu
 sudo dpkg -i striim-node-4.0.5.1B-Linux.deb
