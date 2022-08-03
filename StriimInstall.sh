@@ -7,8 +7,8 @@ wget -c https://striim-downloads.striim.com/Releases/4.1.0.1/striim-node-4.1.0.1
 wget -c https://striim-downloads.striim.com/Releases/4.1.0.1/striim-dbms-4.1.0.1-Linux.deb
 
 # Run installs for Ubuntu
-sudo dpkg -i striim-node-4.0.5.1B-Linux.deb
-sudo dpkg -i striim-dbms-4.0.5.1B-Linux.deb
+sudo dpkg -i striim-node-4.1.0.1-Linux.deb
+sudo dpkg -i striim-dbms-4.1.0.1-Linux.deb
 
 # Ensure directory ownership by striim user
 sudo chown -R striim /opt/striim/*
