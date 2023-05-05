@@ -3,6 +3,12 @@
 # Press ⌃R to execute it or replace it with your code.
 # Press Double ⇧ to search everywhere for classes, files, tool windows, actions, and settings.
 
+# import polling
+# import os
+# import csv
+# import time
+# import datetime
+# import sys
 import requests
 
 import json
@@ -98,10 +104,10 @@ class StriimComponentSourceResponse:
     def __init__(self, command, execution_status, output, response_code):
         self.command = command
         self.execution_status = execution_status
-        self.output = StriimHeadComponentSource(output)
+        self.output = StriimComponentSource(output)
         self.response_code = response_code
 
-class StriimHeadComponentSource:
+class StriimComponentSource:
     def __init__(self, component):
         # component = json.loads(json_string)
         self.catalog_evolution_duration = component['catalogEvolutionDuration'] if 'catalogEvolutionDuration' in component else ''
@@ -143,6 +149,142 @@ class StriimHeadComponentSource:
         self.top_open_transactions = component['topOpenTransactions(#OfOps)'] if 'topOpenTransactions(#OfOps)' in component else ''
         self.operations_in_the_cache = component['operationsInTheCache'] if 'operationsInTheCache' in component else ''
         self.total_number_of_reconnects = component['totalNumberOfReconnects'] if 'totalNumberOfReconnects' in component else ''
+
+
+class StriimComponentTargetResponse:
+    def __init__(self, command, execution_status, output, response_code):
+        self.command = command
+        self.execution_status = execution_status
+        self.output = StriimComponentTarget(output)
+        self.response_code = response_code
+
+class StriimComponentTarget:
+    def __init__(self, component):
+        # component = json.loads(json_str)
+
+        self.accepted = component['accepted'] if 'accepted' in component else ''
+        self.no_of_events_accepted_per_interval = component['no.ofEventsAcceptedPerInterval'] if 'no.ofEventsAcceptedPerInterval' in component else ''
+        self.accepted_rate = component['acceptedRate'] if 'acceptedRate' in component else ''
+        self.commit_lag = component['commitLag'] if 'commitLag' in component else {}
+        self.last_commit_latency = component['lastCommitLatency'] if 'lastCommitLatency' in component else ''
+        self.cpu = component['cpu'] if 'cpu' in component else ''
+        self.cpu_rate_per_node = component['cpuRatePerNode'] if 'cpuRatePerNode' in component else ''
+        self.cpu_rate = component['cpuRate'] if 'cpuRate' in component else ''
+        self.ddl_information = component['ddlInformation'] if 'ddlInformation' in component else {}
+        self.discarded_event_count = component['discardedEventCount'] if 'discardedEventCount' in component else ''
+        self.number_of_events_seen_per_monitor_snapshot_interval = component['numberOfEventsSeenPerMonitorSnapshotInterval'] if 'numberOfEventsSeenPerMonitorSnapshotInterval' in component else ''
+        self.external_i_o_latency = component['externalI/oLatency'] if 'externalI/oLatency' in component else ''
+        self.input = component['input'] if 'input' in component else ''
+        self.input_rate = component['inputRate'] if 'inputRate' in component else ''
+        self.last_commit_time = component['lastCommitTime'] if 'lastCommitTime' in component else ''
+        self.last_i_o_time = component['lastI/oTime'] if 'lastI/oTime' in component else ''
+        self.last_event_write_age = component['lastEventWriteAge'] if 'lastEventWriteAge' in component else ''
+        self.latest_activity = component['latestActivity'] if 'latestActivity' in component else ''
+        self.max_lee_from_all_sources = component['maxLeeFromAllSources'] if 'maxLeeFromAllSources' in component else ''
+        self.no_op_operations = component['no-opOperations'] if 'no-opOperations' in component else {}
+        self.num_servers = component['numServers'] if 'numServers' in component else ''
+        self.exceptions_ignored = component['exceptionsIgnored'] if 'exceptionsIgnored' in component else ''
+        self.individual_operation_count = component['individualOperationCount'] if 'individualOperationCount' in component else {}
+        self.output = component['output'] if 'output' in component else ''
+        self.processed = component['processed'] if 'processed' in component else ''
+        self.rate = component['rate'] if 'rate' in component else ''
+        self.source_rate = component['sourceRate'] if 'sourceRate' in component else ''
+        self.table_information = component['tableInformation'] if 'tableInformation' in component else {}
+        self.target_acked = component['targetAcked'] if 'targetAcked' in component else ''
+        self.target_commit_position = component['targetCommitPosition'] if 'targetCommitPosition' in component else ''
+        self.target_output = component['targetOutput'] if 'targetOutput' in component else ''
+        self.target_rate = component['targetRate'] if 'targetRate' in component else ''
+        self.timestamp = component['timestamp'] if 'timestamp' in component else ''
+        self.total_events_in_last_commit = component['totalEventsInLastCommit'] if 'totalEventsInLastCommit' in component else ''
+        self.total_events_in_last_i_o = component['totalEventsInLastI/o'] if 'totalEventsInLastI/o' in component else ''
+        self.total_number_of_reconnects = component['totalNumberOfReconnects'] if 'totalNumberOfReconnects' in component else ''
+        self.write_bytes = component['writeBytes'] if 'writeBytes' in component else ''
+
+        self.table_write_information = component['tableWriteInformation'] if 'tableWriteInformation' in component else ''
+
+        self.details = {}
+
+        if self.table_write_information != '':
+            # Convert string to JSON object
+            tblinfo = json.loads(self.table_write_information)
+
+            output = {}
+
+            # Loop through JSON object and extract information
+            for item in tblinfo:
+                # Get the key of the current item
+                key = list(item.keys())[0]
+                # Get the information for the current item
+                info = item[key]
+                # Create a new dictionary to store the information
+                new_info = {}
+                # Loop through the information and extract nested information
+                for k, v in info.items():
+                    if isinstance(v, dict):
+                        for nk, nv in v.items():
+                            new_info[f"{k}.{nk}"] = nv
+                    else:
+                        new_info[k] = v
+                # Add the new information to the output dictionary with the key as the table name
+                output[key] = new_info
+
+            # Convert output dictionary to JSON string
+            json_output = json.dumps(output, indent=2)
+
+            self.details = json_output
+
+            # Print output
+            print('json_output',json_output)
+
+class Target_TableInformation:
+    def __init__(self, cmpt):
+        data = cmpt[0]
+        self.total_batches_created = data['Total Batches Created']
+        self.partition_pruned_batches = data['Partition Pruned Batches']
+        self.last_successful_merge_time = data['Last successful merge time']
+        self.total_batches_ignored = data['Total Batches Ignored']
+        self.max_integration_time_in_ms = data['Max Integration Time in ms']
+        self.avg_in_mem_compaction_time_in_ms = data['Avg In-Mem Compaction Time in ms']
+        self.avg_batch_size_in_bytes = data['Avg Batch Size in bytes']
+        self.total_event_info = data['Total event info']
+        self.avg_event_count_per_batch = data['Avg Event Count Per Batch']
+        self.min_integration_time_in_ms = data['Min Integration Time in ms']
+        self.mapped_source_table = data['Mapped Source Table']
+        self.total_batches_queued = data['Total Batches Queued']
+        self.avg_compaction_time_in_ms = data['Avg Compaction Time in ms']
+        self.avg_waiting_time_in_queue_in_ms = data['Avg Waiting Time in Queue in ms']
+        self.avg_integration_time_in_ms = data['Avg Integration Time in ms']
+        self.total_batches_uploaded = data['Total Batches Uploaded']
+        self.avg_merge_time_in_ms = data['Avg Merge Time in ms']
+        # self.last_batch_info = Target_BatchInfo(data['Last batch info'])
+        self.avg_stage_resources_management_time_in_ms = data['Avg Stage Resources Management Time in ms']
+        self.avg_upload_time_in_ms = data['Avg Upload Time in ms']
+
+class Target_BatchInfo:
+    def __init__(self, data):
+        self.no_of_updates = data['No of updates']
+        self.batch_event_count = data['Batch Event Count']
+        self.no_of_inserts = data['No of inserts']
+        self.max_record_size_in_batch = data['Max Record Size in batch']
+        self.total_events_merged = data['Total events merged']
+        self.no_of_ddls = data['No of DDLs']
+        self.batch_sequence_number = data['Batch Sequence Number']
+        self.batch_size_in_bytes = data['Batch Size in bytes']
+        self.integration_task_time = Target_IntegrationTaskTime(data['Integration Task Time'])
+        self.no_of_deletes = data['No of deletes']
+        self.no_of_pkupdates = data['No of pkupdates']
+        self.batch_accumulation_time_in_ms = data['Batch Accumulation Time in ms']
+
+class Target_IntegrationTaskTime:
+    def __init__(self, data):
+        self.compaction_time_in_ms = data['Compaction Time in ms']
+        self.stage_resources_management_time_in_ms = data['Stage Resources Management Time in ms']
+        self.upload_time_in_ms = data['Upload Time in ms']
+        self.merge_time_in_ms = data['Merge Time in ms']
+        self.in_mem_compaction_time_in_ms = data['In-Memory Compaction Time in ms']
+        self.pk_update_time_in_ms = data['pk Update Time in ms']
+        self.ddl_execution_time_in_ms = data['DDL Execution Time in ms']
+        self.total_integration_time_in_ms = data['Total Integration Time in ms']
 
 
 class StriimApplication:
@@ -259,7 +401,7 @@ def runMon(component=''):
 def runReview():
     # Use a breakpoint in the code line below to debug your script.
 
-    # Get node information
+    # Get node information: mon;
     json_response = runMon()
 
     # print(json_response)
@@ -268,6 +410,7 @@ def runReview():
     striim_apps, striim_nodes, es_nodes = map_mon_json_response(json_response)
 
     for app in striim_apps:
+        # Run: mon <app name>
         json_mon_app = runMon(app.full_name)[0]
         # print(json_mon_app)
         # print(json_mon_app[0])
@@ -284,16 +427,37 @@ def runReview():
 
                 app.add_component(new_component)
 
-                if new_component.entityType == "SOURCE":
+                # Only look at active sources
+                if new_component.entityType == "SOURCE" and new_component.latestActivity != '':
                     print("Source!", new_component.fullName)
                     print(new_component.latestActivity, '-', new_component.statusChange)
+
+                    # Run: mon <source component name>
                     json_source_component = runMon(new_component.fullName)[0]
+
                     striim_source_component = StriimComponentSourceResponse(json_source_component['command'],
                                                                         json_source_component['executionStatus'],
                                                                         json_source_component['output'],
                                                                         json_source_component['responseCode']).output
 
-                    print(striim_source_component.table_information)
+                    # print(striim_source_component.table_information)
+
+                # Only look at active targets
+                if new_component.entityType == "TARGET" and new_component.latestActivity != '':
+                    print("Target!", new_component.fullName)
+                    print(new_component.latestActivity, '-', new_component.statusChange)
+
+                    # Run: mon <source component name>
+                    json_target_component = runMon(new_component.fullName)[0]
+
+
+                    striim_target_component = StriimComponentTargetResponse(json_target_component['command'],
+                                                                        json_target_component['executionStatus'],
+                                                                        json_target_component['output'],
+                                                                        json_target_component['responseCode']).output
+
+                    print("kvp", striim_target_component.details)
+
 
         # app.add_component(striim_component)
 
