@@ -1,4 +1,5 @@
 # This is a sample Python script.
+import time
 
 # Press ⌃R to execute it or replace it with your code.
 # Press Double ⇧ to search everywhere for classes, files, tool windows, actions, and settings.
@@ -141,6 +142,7 @@ class StriimComponentSource:
         self.rate = component['rate'] if 'rate' in component else ''
         self.read_lag = component['readLag'] if 'readLag' in component else ''
         self.read_timestamp = component['readTimestamp'] if 'readTimestamp' in component else ''
+        self.rowcount = component['rowCount'] if 'rowCount' in component else ''
         self.source_freshness = component['sourceFreshness'] if 'sourceFreshness' in component else ''
         self.source_input = component['sourceInput'] if 'sourceInput' in component else ''
         self.source_rate = component['sourceRate'] if 'sourceRate' in component else ''
@@ -436,8 +438,8 @@ def runReview():
 
                 # Only look at active sources
                 if new_component.entityType == "SOURCE" and new_component.latestActivity != '':
-                    print("Source!", new_component.fullName)
-                    print(new_component.latestActivity, '-', new_component.statusChange)
+                    # print("Source!", new_component.fullName)
+                    # print(new_component.latestActivity, '-', new_component.statusChange)
 
                     # Run: mon <source component name>
                     json_source_component = runMon(new_component.fullName)[0]
@@ -451,6 +453,8 @@ def runReview():
                     # print('src', striim_source_component.table_information)
 
                     json_source_data = json.loads(striim_source_component.table_information)
+
+                    print("rowcount", striim_source_component.rowcount)
 
                     for source_table_name, data_str in json_source_data.items():
                         data_dict = json.loads(data_str)
@@ -468,21 +472,16 @@ def runReview():
 
                 # Only look at active targets
                 if new_component.entityType == "TARGET" and new_component.latestActivity != '':
-                    print("Target!", new_component.fullName)
-                    print(new_component.latestActivity, '-', new_component.statusChange)
+                    # print("Target!", new_component.fullName)
+                    # print(new_component.latestActivity, '-', new_component.statusChange)
 
                     # Run: mon <source component name>
                     json_target_component = runMon(new_component.fullName)[0]
-
-                    print('monC:', json_target_component)
 
                     striim_target_component = StriimComponentTargetResponse(json_target_component['command'],
                                                                         json_target_component['executionStatus'],
                                                                         json_target_component['output'],
                                                                         json_target_component['responseCode']).output
-
-                    print("kvp", striim_target_component.table_information)
-                    print("type", type(striim_target_component.table_information))
 
                     # parse the input JSON data
                     json_target_data = json.loads(striim_target_component.table_information)
@@ -492,7 +491,6 @@ def runReview():
                         # Loop through tuple
                         for i, dr in enumerate(data_records):
                             if dr.SourceTableName in v['Sources']:
-                                print('Match: ', dr.SourceTableName)
                                 # update TargetTableName
                                 data_records[i] = dr._replace(TargetTableName=k)
 
@@ -501,37 +499,57 @@ def runReview():
                                 data_records[i] = data_records[i]._replace(
                                     LastBatchActivity=v['Last Batch Execution Time'])
 
+        # For this application, build the summary of results.
 
+        did_print = False;
 
+        if len(data_records) > 0:
+            print("Reviewing App:", app.full_name)
+            did_print = True;
 
-                    #
-
-        # app.add_component(striim_component)
-
-        # print(striim_component.entityType + ":" + striim_component.fullName)
-
-
-        # app.add_component()
-        # Print out data records for compare
         # Sort the data_records list based on the schemaGenerationStatus field
         sorted_data = sorted(data_records, key=lambda r: r.dataReadStatus == 'Completed', reverse=True)
 
+        strCompletedSourceList = ''
+        strRemainingSourceList = ''
+
         # Loop through the sorted list and print the fields
         for record in sorted_data:
-            print(f"SourceTableName: {record.SourceTableName}")
-            print(f"TotalRows: {record.TotalRows}")
-            print(f"schemaGenerationStatus: {record.schemaGenerationStatus}")
-            print(f"dataReadStatus: {record.dataReadStatus}")
-            print(f"RowsRead: {record.RowsRead}")
-            print(f"TargetTableName: {record.TargetTableName}")
-            print(f"NumberOfInserts: {record.NumberOfInserts}")
-            print(f"LastBatchActivity: {record.LastBatchActivity}")
-            print()
+            # Check statuses
+            if record.NumberOfInserts == record.RowsRead:
+                strCompletedSourceList += record.SourceTableName + ';'
+                print(f" --- Complete: {record.SourceTableName} ({record.RowsRead} rows)\t-> {record.TargetTableName} ({record.NumberOfInserts} rows)\t@ {record.LastBatchActivity}")
+                did_print = True;
+            else:
+                strRemainingSourceList += record.SourceTableName + ';'
+                completeProgress = 0
+                if record.RowsRead != 0:
+                    # This value is inaccurate; RowsRead will continue to increase until Striim has detected all rows.
+                    completeProgress = int(record.NumberOfInserts) / int(record.RowsRead)
+                print(f"", '{:.0%}'.format(completeProgress), f"Progress: {record.SourceTableName} ({record.RowsRead} rows)\t-> {record.TargetTableName} ({record.NumberOfInserts} rows)\t@ {record.LastBatchActivity}")
+                did_print = True;
+
+        if strCompletedSourceList != '':
+            print("Completed Sources: ", strCompletedSourceList)
+            did_print = True;
+        if strRemainingSourceList != '':
+            print("Remaining Sources: ", strRemainingSourceList)
+            did_print = True;
+
+        if did_print:
+            print("------------------------------ Next run in 60 seconds ------------------------------------")
 
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    runReview()
+    continueRun = True;
+    numberOfTimes = 100;
+    while(continueRun):
+        runReview()
+        numberOfTimes = numberOfTimes - 1;
+        time.sleep(10)
+        if numberOfTimes == 0:
+            continueRun = False;
     #print(runMon('oracle.Oracle_CDC_Continuous'))
 
 # See PyCharm help at https://www.jetbrains.com/help/pycharm/
