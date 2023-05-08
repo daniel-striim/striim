@@ -418,6 +418,7 @@ def runReview():
                                 ['SourceTableName', 'TotalRows', 'schemaGenerationStatus', 'dataReadStatus', 'RowsRead',
                                  'TargetTableName', 'NumberOfInserts', 'LastBatchActivity'])
         data_records = []
+        additional_records = []
 
         # Run: mon <app name>
         json_mon_app = runMon(app.full_name)[0]
@@ -454,7 +455,7 @@ def runReview():
 
                     json_source_data = json.loads(striim_source_component.table_information)
 
-                    print("rowcount", striim_source_component.rowcount)
+                    # print("rowcount", striim_source_component.rowcount)
 
                     for source_table_name, data_str in json_source_data.items():
                         data_dict = json.loads(data_str)
@@ -488,16 +489,32 @@ def runReview():
 
                     # iterate over the data to find matching entry
                     for k, v in json_target_data.items():
+
                         # Loop through tuple
                         for i, dr in enumerate(data_records):
                             if dr.SourceTableName in v['Sources']:
-                                # update TargetTableName
-                                data_records[i] = dr._replace(TargetTableName=k)
+                                # Check to see if this record is already used
+                                if data_records[i].TargetTableName == '':
+                                    # update TargetTableName
+                                    data_records[i] = dr._replace(TargetTableName=k)
 
-                                # update NumberOfInserts and LastBatchActivity
-                                data_records[i] = data_records[i]._replace(NumberOfInserts=v['No of Inserts'])
-                                data_records[i] = data_records[i]._replace(
-                                    LastBatchActivity=v['Last Batch Execution Time'])
+                                    # update NumberOfInserts and LastBatchActivity
+                                    data_records[i] = data_records[i]._replace(NumberOfInserts=v['No of Inserts'])
+                                    data_records[i] = data_records[i]._replace(
+                                        LastBatchActivity=v['Last Batch Execution Time'])
+                                else:
+                                    new_record = DataRecord(
+                                                        SourceTableName=data_records[i].SourceTableName,
+                                                        TotalRows=data_records[i].TotalRows,
+                                                        schemaGenerationStatus=data_records[i].schemaGenerationStatus,
+                                                        dataReadStatus=data_records[i].dataReadStatus,
+                                                        RowsRead=data_records[i].RowsRead,
+                                                        TargetTableName=k,
+                                                        NumberOfInserts=v['No of Inserts'],
+                                                        LastBatchActivity=v['Last Batch Execution Time']
+                                                    )
+                                    # print(new_record)
+                                    additional_records.append(new_record)
 
         # For this application, build the summary of results.
 
@@ -507,8 +524,13 @@ def runReview():
             print("Reviewing App:", app.full_name)
             did_print = True;
 
-        # Sort the data_records list based on the schemaGenerationStatus field
-        sorted_data = sorted(data_records, key=lambda r: r.dataReadStatus == 'Completed', reverse=True)
+        data_records.extend(additional_records)
+
+        # Sort the data_records list based on the dataReadStatus field
+        # sorted_data = sorted(data_records, key=lambda r: r.dataReadStatus == 'Completed', reverse=True)
+
+        # Sort based on LastBatchActivity
+        sorted_data = sorted(data_records, key=lambda r: r.LastBatchActivity, reverse=True)
 
         strCompletedSourceList = ''
         strRemainingSourceList = ''
@@ -518,15 +540,16 @@ def runReview():
             # Check statuses
             if record.NumberOfInserts == record.RowsRead:
                 strCompletedSourceList += record.SourceTableName + ';'
-                print(f" --- Complete: {record.SourceTableName} ({record.RowsRead} rows)\t-> {record.TargetTableName} ({record.NumberOfInserts} rows)\t@ {record.LastBatchActivity}")
+                print(f" - {record.LastBatchActivity} --- Complete: {record.SourceTableName} ({record.RowsRead} rows)\t-> {record.TargetTableName} ({record.NumberOfInserts} rows)")
                 did_print = True;
             else:
                 strRemainingSourceList += record.SourceTableName + ';'
                 completeProgress = 0
                 if record.RowsRead != 0:
                     # This value is inaccurate; RowsRead will continue to increase until Striim has detected all rows.
-                    completeProgress = int(record.NumberOfInserts) / int(record.RowsRead)
-                print(f"", '{:.0%}'.format(completeProgress), f"Progress: {record.SourceTableName} ({record.RowsRead} rows)\t-> {record.TargetTableName} ({record.NumberOfInserts} rows)\t@ {record.LastBatchActivity}")
+                    completeProgress = 0 #int(record.NumberOfInserts) / int(record.RowsRead)
+                # print(f" - {record.LastBatchActivity}", '{:.0%}'.format(completeProgress), f"Progress: {record.SourceTableName} ({record.RowsRead} rows)\t-> {record.TargetTableName} ({record.NumberOfInserts} rows)")
+                print(f" - {record.LastBatchActivity} - Progress: {record.SourceTableName} ({record.RowsRead} rows)\t-> {record.TargetTableName} ({record.NumberOfInserts} rows)")
                 did_print = True;
 
         if strCompletedSourceList != '':
