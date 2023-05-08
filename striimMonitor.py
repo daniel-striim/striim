@@ -12,6 +12,7 @@
 import requests
 
 import json
+from collections import namedtuple
 
 """
 python3 main.py localhost admin password /Users/<username>/Downloads/StriimApps/
@@ -22,7 +23,7 @@ Script command-line arguments:
             4th arg: password for Striim URL, in this case, test
             5th arg: location of CSV file on the server (include trailing "/")
 """
-node = '34.82.51.202' # sys.argv[1]
+node = '34.105.51.166' # sys.argv[1]
 username = 'admin' # sys.argv[2]
 password = 'admin' # sys.argv[3]
 
@@ -410,6 +411,12 @@ def runReview():
     striim_apps, striim_nodes, es_nodes = map_mon_json_response(json_response)
 
     for app in striim_apps:
+        # Define the named tuple to store the extracted information
+        DataRecord = namedtuple('DataRecord',
+                                ['SourceTableName', 'TotalRows', 'schemaGenerationStatus', 'dataReadStatus', 'RowsRead',
+                                 'TargetTableName', 'NumberOfInserts', 'LastBatchActivity'])
+        data_records = []
+
         # Run: mon <app name>
         json_mon_app = runMon(app.full_name)[0]
         # print(json_mon_app)
@@ -440,7 +447,24 @@ def runReview():
                                                                         json_source_component['output'],
                                                                         json_source_component['responseCode']).output
 
-                    # print(striim_source_component.table_information)
+                    # For debugging, this prints the source information
+                    # print('src', striim_source_component.table_information)
+
+                    json_source_data = json.loads(striim_source_component.table_information)
+
+                    for source_table_name, data_str in json_source_data.items():
+                        data_dict = json.loads(data_str)
+                        record = DataRecord(
+                            SourceTableName=source_table_name,
+                            TotalRows=data_dict['TotalRows'],
+                            schemaGenerationStatus=data_dict['schemaGenerationStatus'],
+                            dataReadStatus=data_dict['dataReadStatus'],
+                            RowsRead=data_dict['RowsRead'],
+                            TargetTableName='',
+                            NumberOfInserts='',
+                            LastBatchActivity=''
+                        )
+                        data_records.append(record)
 
                 # Only look at active targets
                 if new_component.entityType == "TARGET" and new_component.latestActivity != '':
@@ -450,14 +474,37 @@ def runReview():
                     # Run: mon <source component name>
                     json_target_component = runMon(new_component.fullName)[0]
 
+                    print('monC:', json_target_component)
 
                     striim_target_component = StriimComponentTargetResponse(json_target_component['command'],
                                                                         json_target_component['executionStatus'],
                                                                         json_target_component['output'],
                                                                         json_target_component['responseCode']).output
 
-                    print("kvp", striim_target_component.details)
+                    print("kvp", striim_target_component.table_information)
+                    print("type", type(striim_target_component.table_information))
 
+                    # parse the input JSON data
+                    json_target_data = json.loads(striim_target_component.table_information)
+
+                    # iterate over the data to find matching entry
+                    for k, v in json_target_data.items():
+                        # Loop through tuple
+                        for i, dr in enumerate(data_records):
+                            if dr.SourceTableName in v['Sources']:
+                                print('Match: ', dr.SourceTableName)
+                                # update TargetTableName
+                                data_records[i] = dr._replace(TargetTableName=k)
+
+                                # update NumberOfInserts and LastBatchActivity
+                                data_records[i] = data_records[i]._replace(NumberOfInserts=v['No of Inserts'])
+                                data_records[i] = data_records[i]._replace(
+                                    LastBatchActivity=v['Last Batch Execution Time'])
+
+
+
+
+                    #
 
         # app.add_component(striim_component)
 
@@ -465,7 +512,21 @@ def runReview():
 
 
         # app.add_component()
+        # Print out data records for compare
+        # Sort the data_records list based on the schemaGenerationStatus field
+        sorted_data = sorted(data_records, key=lambda r: r.dataReadStatus == 'Completed', reverse=True)
 
+        # Loop through the sorted list and print the fields
+        for record in sorted_data:
+            print(f"SourceTableName: {record.SourceTableName}")
+            print(f"TotalRows: {record.TotalRows}")
+            print(f"schemaGenerationStatus: {record.schemaGenerationStatus}")
+            print(f"dataReadStatus: {record.dataReadStatus}")
+            print(f"RowsRead: {record.RowsRead}")
+            print(f"TargetTableName: {record.TargetTableName}")
+            print(f"NumberOfInserts: {record.NumberOfInserts}")
+            print(f"LastBatchActivity: {record.LastBatchActivity}")
+            print()
 
 
 # Press the green button in the gutter to run the script.
