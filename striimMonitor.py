@@ -407,6 +407,7 @@ def runReview():
                                  'TargetTableName', 'NumberOfInserts', 'LastBatchActivity'])
         data_records = []
         additional_records = []
+        considered_target_components = []
 
         # Run: mon <app name>
         json_mon_app = runMon(app.full_name)[0]
@@ -495,14 +496,17 @@ def runReview():
                                     data_records[i] = data_records[i]._replace(NumberOfInserts=v['No of Inserts'])
                                     data_records[i] = data_records[i]._replace(
                                         LastBatchActivity=v['Last Batch Execution Time'])
-                                if data_records[i].TargetTableName == k:
+
+                                    considered_target_components.append(new_component.fullName)
+                                if data_records[i].TargetTableName == k and new_component.fullName not in considered_target_components:
                                     # We need to update existing entry, since table matches
                                     new_numOfInserts = data_records[i].NumberOfInserts + v['No of Inserts']
 
-                                    data_records[i] = dr._replace(NumberOfInserts=new_numOfInserts)
+                                    data_records[i] = dr._replace(TargetTableName=k)
+                                    data_records[i] = data_records[i]._replace(NumberOfInserts=new_numOfInserts)
                                     data_records[i] = data_records[i]._replace(
                                         LastBatchActivity=v['Last Batch Execution Time'])
-                                else:
+                                if new_component.fullName not in considered_target_components:
                                     # We need a new entry since target table does not match
                                     new_record = DataRecord(
                                                         SourceTableName=data_records[i].SourceTableName,
