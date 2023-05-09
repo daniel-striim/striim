@@ -1,43 +1,31 @@
 # This is a sample Python script.
 import time
-
-# Press ⌃R to execute it or replace it with your code.
-# Press Double ⇧ to search everywhere for classes, files, tool windows, actions, and settings.
-
-# import polling
-# import os
-# import csv
-# import time
-# import datetime
-# import sys
 import requests
+from datetime import datetime
+import logging
 
 import json
 from collections import namedtuple
 
 """
-python3 main.py localhost admin password /Users/<username>/Downloads/StriimApps/
-Script command-line arguments:
-            1st arg: script name in this case runOrderedInitialLoad.py
-            2nd arg: hostname where the application is running in this case localhost
-            3rd arg: login for Striim URL, in this case, admin
-            4th arg: password for Striim URL, in this case, test
-            5th arg: location of CSV file on the server (include trailing "/")
+This script contains a set of parameters listed below. Optionally, update this to use sys.argv[x] as indicated:
 """
-node = '34.105.51.166' # sys.argv[1]
+node = '35.227.185.202' # sys.argv[1]
 username = 'admin' # sys.argv[2]
 password = 'admin' # sys.argv[3]
 
-#create full appOrder.csv file path
-dir = '' # sys.argv[4]
-file = "appOrder.csv"
-fullPath = dir + file
+polling_interval_seconds = 10 # sys.argv[4]
+run_iterations = 100 # sys.argv[5]
+log_output_path = '/Users/danielferrara/Documents/striimwatcher.log' # sys.argv[6]
+append_log = True # sys.argv[7]
 
 #generate REST API authentication token
 data = {'username': username, 'password': password}
 resp = requests.post('http://' + node + ':9080/security/authenticate', data=data)
 jkvp = json.loads(resp.text)
 sToken = jkvp['token']
+
+logging.basicConfig(filename=log_output_path, level=logging.INFO, format='%(asctime)s:%(levelname)s:%(message)s')
 
 #define headers
 headers = {'authorization':'STRIIM-TOKEN ' + sToken, 'content-type': 'text/plain'}
@@ -458,18 +446,19 @@ def runReview():
                     # print("rowcount", striim_source_component.rowcount)
 
                     for source_table_name, data_str in json_source_data.items():
-                        data_dict = json.loads(data_str)
-                        record = DataRecord(
-                            SourceTableName=source_table_name,
-                            TotalRows=data_dict['TotalRows'],
-                            schemaGenerationStatus=data_dict['schemaGenerationStatus'],
-                            dataReadStatus=data_dict['dataReadStatus'],
-                            RowsRead=data_dict['RowsRead'],
-                            TargetTableName='',
-                            NumberOfInserts='',
-                            LastBatchActivity=''
-                        )
-                        data_records.append(record)
+                        if data_str != '' and 'TotalRows' in data_str:
+                            data_dict = json.loads(data_str)
+                            record = DataRecord(
+                                SourceTableName=source_table_name,
+                                TotalRows=data_dict['TotalRows'],
+                                schemaGenerationStatus=data_dict['schemaGenerationStatus'],
+                                dataReadStatus=data_dict['dataReadStatus'],
+                                RowsRead=data_dict['RowsRead'],
+                                TargetTableName='',
+                                NumberOfInserts='',
+                                LastBatchActivity=''
+                            )
+                            data_records.append(record)
 
                 # Only look at active targets
                 if new_component.entityType == "TARGET" and new_component.latestActivity != '':
@@ -492,9 +481,13 @@ def runReview():
 
                         # Loop through tuple
                         for i, dr in enumerate(data_records):
+                            # Track if we update a target table already
+
                             if dr.SourceTableName in v['Sources']:
                                 # Check to see if this record is already used
                                 if data_records[i].TargetTableName == '':
+                                    # print('Updating existing entry...')
+
                                     # update TargetTableName
                                     data_records[i] = dr._replace(TargetTableName=k)
 
@@ -502,7 +495,15 @@ def runReview():
                                     data_records[i] = data_records[i]._replace(NumberOfInserts=v['No of Inserts'])
                                     data_records[i] = data_records[i]._replace(
                                         LastBatchActivity=v['Last Batch Execution Time'])
+                                if data_records[i].TargetTableName == k:
+                                    # We need to update existing entry, since table matches
+                                    new_numOfInserts = data_records[i].NumberOfInserts + v['No of Inserts']
+
+                                    data_records[i] = dr._replace(NumberOfInserts=new_numOfInserts)
+                                    data_records[i] = data_records[i]._replace(
+                                        LastBatchActivity=v['Last Batch Execution Time'])
                                 else:
+                                    # We need a new entry since target table does not match
                                     new_record = DataRecord(
                                                         SourceTableName=data_records[i].SourceTableName,
                                                         TotalRows=data_records[i].TotalRows,
@@ -515,13 +516,13 @@ def runReview():
                                                     )
                                     # print(new_record)
                                     additional_records.append(new_record)
-
-        # For this application, build the summary of results.
+                                    # For this application, build the summary of results.
 
         did_print = False;
 
         if len(data_records) > 0:
-            print("Reviewing App:", app.full_name)
+            print(" > Reviewing App:", app.full_name)
+            logging.info(" > Reviewing App: " + app.full_name)
             did_print = True;
 
         data_records.extend(additional_records)
@@ -540,7 +541,8 @@ def runReview():
             # Check statuses
             if record.NumberOfInserts == record.RowsRead:
                 strCompletedSourceList += record.SourceTableName + ';'
-                print(f" - {record.LastBatchActivity} --- Complete: {record.SourceTableName} ({record.RowsRead} rows)\t-> {record.TargetTableName} ({record.NumberOfInserts} rows)")
+                print(f" > - {record.LastBatchActivity} --- Complete: {record.SourceTableName} ({record.RowsRead} rows)\t-> {record.TargetTableName} ({record.NumberOfInserts} rows)")
+                logging.info(f" > - {record.LastBatchActivity} --- Complete: {record.SourceTableName} ({record.RowsRead} rows)\t-> {record.TargetTableName} ({record.NumberOfInserts} rows)")
                 did_print = True;
             else:
                 strRemainingSourceList += record.SourceTableName + ';'
@@ -548,29 +550,36 @@ def runReview():
                 if record.RowsRead != 0:
                     # This value is inaccurate; RowsRead will continue to increase until Striim has detected all rows.
                     completeProgress = 0 #int(record.NumberOfInserts) / int(record.RowsRead)
-                # print(f" - {record.LastBatchActivity}", '{:.0%}'.format(completeProgress), f"Progress: {record.SourceTableName} ({record.RowsRead} rows)\t-> {record.TargetTableName} ({record.NumberOfInserts} rows)")
-                print(f" - {record.LastBatchActivity} - Progress: {record.SourceTableName} ({record.RowsRead} rows)\t-> {record.TargetTableName} ({record.NumberOfInserts} rows)")
+                print(f" > - {record.LastBatchActivity} - Progress: {record.SourceTableName} ({record.RowsRead} rows)\t-> {record.TargetTableName} ({record.NumberOfInserts} rows)")
+                logging.info(f" > - {record.LastBatchActivity} - Progress: {record.SourceTableName} ({record.RowsRead} rows)\t-> {record.TargetTableName} ({record.NumberOfInserts} rows)")
                 did_print = True;
 
         if strCompletedSourceList != '':
-            print("Completed Sources: ", strCompletedSourceList)
+            print(" > Completed Sources: ", strCompletedSourceList)
+            logging.info(" > Completed Sources: " + strCompletedSourceList)
             did_print = True;
         if strRemainingSourceList != '':
-            print("Remaining Sources: ", strRemainingSourceList)
+            print(" > Remaining Sources: ", strRemainingSourceList)
+            logging.info(" > Remaining Sources: "+ strRemainingSourceList)
             did_print = True;
 
         if did_print:
-            print("------------------------------ Next run in 60 seconds ------------------------------------")
+            print(f"------------------------------ Next run in {polling_interval_seconds} seconds ------------------------------------")
+            logging.info(f"------------------------------ Next run in {polling_interval_seconds} seconds ------------------------------------")
 
 
-# Press the green button in the gutter to run the script.
 if __name__ == '__main__':
     continueRun = True;
-    numberOfTimes = 100;
+    numberOfTimes = run_iterations;
+    print('Logging Enabled. Storing at: ' + log_output_path)
     while(continueRun):
+        print('Executing at', str(datetime.now()))
+        logging.info('Executing at ' + str(datetime.now()))
         runReview()
         numberOfTimes = numberOfTimes - 1;
-        time.sleep(10)
+        print('Run completed at', datetime.now(), '-', str(numberOfTimes), 'runs remaining.')
+        logging.info('Run completed at ' + str(datetime.now()) + ' - ' + str(numberOfTimes) + ' runs remaining.')
+        time.sleep(polling_interval_seconds)
         if numberOfTimes == 0:
             continueRun = False;
     #print(runMon('oracle.Oracle_CDC_Continuous'))
