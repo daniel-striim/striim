@@ -506,6 +506,8 @@ def runReview():
                                     data_records[i] = data_records[i]._replace(NumberOfInserts=new_numOfInserts)
                                     data_records[i] = data_records[i]._replace(
                                         LastBatchActivity=v['Last Batch Execution Time'])
+
+                                    considered_target_components.append(new_component.fullName)
                                 if new_component.fullName not in considered_target_components:
                                     # We need a new entry since target table does not match
                                     new_record = DataRecord(
@@ -520,6 +522,8 @@ def runReview():
                                                     )
                                     # print(new_record)
                                     additional_records.append(new_record)
+
+                                    considered_target_components.append(new_component.fullName)
                                     # For this application, build the summary of results.
 
         did_print = False;
