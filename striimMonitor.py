@@ -17,7 +17,6 @@ password = 'admin' # sys.argv[3]
 polling_interval_seconds = 10 # sys.argv[4]
 run_iterations = 100 # sys.argv[5]
 log_output_path = '/Users/danielferrara/Documents/striimwatcher.log' # sys.argv[6]
-append_log = True # sys.argv[7]
 
 #generate REST API authentication token
 data = {'username': username, 'password': password}
