@@ -532,7 +532,7 @@ def runReview():
 
         if len(data_records) > 0:
             print(" > Reviewing App:", app.full_name, '(' + app.status_change + ')')
-            logging.info(" > Reviewing App: " + app.full_name)
+            logging.info(" > Reviewing App: " + app.full_name + ' (' + app.status_change + ')')
             did_print = True;
 
         data_records.extend(additional_records)
