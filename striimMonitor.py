@@ -10,7 +10,7 @@ from collections import namedtuple
 """
 This script contains a set of parameters listed below. Optionally, update this to use sys.argv[x] as indicated:
 """
-node = '35.227.185.202' # sys.argv[1]
+node = '34.127.81.55' # sys.argv[1]
 username = 'admin' # sys.argv[2]
 password = 'admin' # sys.argv[3]
 
@@ -407,7 +407,7 @@ def runReview():
                                  'TargetTableName', 'NumberOfInserts', 'LastBatchActivity'])
         data_records = []
         additional_records = []
-        considered_target_components = []
+        # considered_target_components = []
 
         # Run: mon <app name>
         json_mon_app = runMon(app.full_name)[0]
@@ -418,8 +418,8 @@ def runReview():
 
         # print(striim_head_component.applicationComponents)
 
-        # Only consider responses that actually have applicationComponents
-        if (striim_head_component.applicationComponents != ''):
+        # Only consider responses that actually have applicationComponents and either running, success or terminated
+        if (striim_head_component.applicationComponents != '' and striim_head_component.statusChange not in ['CREATED','DEPLOYED']):
             for striim_component in striim_head_component.applicationComponents:
 
                 new_component = StriimComponent(striim_component)
@@ -473,7 +473,7 @@ def runReview():
                                                                         json_target_component['executionStatus'],
                                                                         json_target_component['output'],
                                                                         json_target_component['responseCode']).output
-
+                    # print(json_target_component)
                     # parse the input JSON data
                     json_target_data = json.loads(striim_target_component.table_information)
 
@@ -485,20 +485,12 @@ def runReview():
                             # Track if we update a target table already
 
                             if dr.SourceTableName in v['Sources']:
-                                # Check to see if this record is already used
-                                if data_records[i].TargetTableName == '':
-                                    # print('Updating existing entry...')
 
-                                    # update TargetTableName
-                                    data_records[i] = dr._replace(TargetTableName=k)
+                                # Only one action needs to occur
+                                completedUpdate = False;
 
-                                    # update NumberOfInserts and LastBatchActivity
-                                    data_records[i] = data_records[i]._replace(NumberOfInserts=v['No of Inserts'])
-                                    data_records[i] = data_records[i]._replace(
-                                        LastBatchActivity=v['Last Batch Execution Time'])
-
-                                    considered_target_components.append(new_component.fullName)
-                                if data_records[i].TargetTableName == k and new_component.fullName not in considered_target_components:
+                                # Check to see if we are updating a record
+                                if data_records[i].TargetTableName == k: # and new_component.fullName not in considered_target_components:
                                     # We need to update existing entry, since table matches
                                     new_numOfInserts = data_records[i].NumberOfInserts + v['No of Inserts']
 
@@ -507,8 +499,19 @@ def runReview():
                                     data_records[i] = data_records[i]._replace(
                                         LastBatchActivity=v['Last Batch Execution Time'])
 
-                                    considered_target_components.append(new_component.fullName)
-                                if new_component.fullName not in considered_target_components:
+                                    completedUpdate = True;
+                                # Check to see if this record is already used
+                                if data_records[i].TargetTableName == '':
+                                    # update TargetTableName
+                                    data_records[i] = dr._replace(TargetTableName=k)
+
+                                    # update NumberOfInserts and LastBatchActivity
+                                    data_records[i] = data_records[i]._replace(NumberOfInserts=v['No of Inserts'])
+                                    data_records[i] = data_records[i]._replace(
+                                        LastBatchActivity=v['Last Batch Execution Time'])
+
+                                    completedUpdate = True;
+                                if not completedUpdate:
                                     # We need a new entry since target table does not match
                                     new_record = DataRecord(
                                                         SourceTableName=data_records[i].SourceTableName,
@@ -523,13 +526,13 @@ def runReview():
                                     # print(new_record)
                                     additional_records.append(new_record)
 
-                                    considered_target_components.append(new_component.fullName)
+                                    # considered_target_components.append(new_component.fullName)
                                     # For this application, build the summary of results.
 
         did_print = False;
 
         if len(data_records) > 0:
-            print(" > Reviewing App:", app.full_name)
+            print(" > Reviewing App:", app.full_name, '(' + app.status_change + ')')
             logging.info(" > Reviewing App: " + app.full_name)
             did_print = True;
 
