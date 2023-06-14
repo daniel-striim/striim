@@ -10,13 +10,18 @@ from collections import namedtuple
 """
 This script contains a set of parameters listed below. Optionally, update this to use sys.argv[x] as indicated:
 """
-node = '34.127.81.55' # sys.argv[1]
-username = 'admin' # sys.argv[2]
-password = 'admin' # sys.argv[3]
+node = '24.53.180.24' # Put your node IP Address or DNS name
+username = 'admin' # Use your ADMIN username here
+password = 'adminpassword' # User your ADMIN password here
 
-polling_interval_seconds = 10 # sys.argv[4]
-run_iterations = 100 # sys.argv[5]
-log_output_path = '/Users/danielferrara/Documents/striimwatcher.log' # sys.argv[6]
+polling_interval_seconds = 10 # This controls how often this will check for updates
+run_iterations = 100 # This controls how many times it will loop through this run
+log_output_path = '/Users/danielferrara/Documents/striimwatcher.log' # This indicates the path to store the output logs (persisted logging)
+
+# Notes about the Code
+# * This code is meant to be run as-is and be able to return valueable Initial Load or CDC Data.
+# * This code is provided as a sample, in order to support being able to work with Striim's Rest API
+# * This code is not officially supported as part of Striim
 
 #generate REST API authentication token
 data = {'username': username, 'password': password}
@@ -33,25 +38,25 @@ headers = {'authorization':'STRIIM-TOKEN ' + sToken, 'content-type': 'text/plain
 class StriimSource:
     def __init__(self, json_response):
         response = json.loads(json_response)[0]
-        self.command = response['command']
-        self.execution_status = response['executionStatus']
-        self.cpu = response['output']['cpu']
-        self.cpu_rate_per_node = response['output']['cpuRatePerNode']
-        self.cpu_rate = response['output']['cpuRate']
-        self.number_of_events_seen_per_monitor_snapshot_interval = response['output']['numberOfEventsSeenPerMonitorSnapshotInterval']
-        self.ignored_tables_list = response['output']['ignoredTablesList']
-        self.input = response['output']['input']
-        self.input_rate = response['output']['inputRate']
-        self.last_event_read_age = response['output']['lastEventReadAge']
-        self.latest_activity = response['output']['latestActivity']
-        self.num_servers = response['output']['numServers']
-        self.rate = response['output']['rate']
-        self.read_status = response['output']['readStatus']
-        self.source_input = response['output']['sourceInput']
-        self.source_rate = response['output']['sourceRate']
-        self.table_information = response['output']['tableInformation']
-        self.timestamp = response['output']['timestamp']
-        self.row_count = response['output']['rowCount']
+        self.command = response['command'] if 'command' in response else ''
+        self.execution_status = response['executionStatus'] if 'executionStatus' in response else ''
+        self.cpu = response['output']['cpu'] if 'output' in response and 'cpu' in response['output'] else ''
+        self.cpu_rate_per_node = response['output']['cpuRatePerNode'] if 'output' in response and 'cpuRatePerNode' in response['output'] else ''
+        self.cpu_rate = response['output']['cpuRate'] if 'output' in response and 'cpuRate' in response['output'] else ''
+        self.number_of_events_seen_per_monitor_snapshot_interval = response['output']['numberOfEventsSeenPerMonitorSnapshotInterval'] if 'output' in response and 'numberOfEventsSeenPerMonitorSnapshotInterval' in response['output'] else ''
+        self.ignored_tables_list = response['output']['ignoredTablesList'] if 'output' in response and 'ignoredTablesList' in response['output'] else ''
+        self.input = response['output']['input'] if 'output' in response and 'input' in response['output'] else ''
+        self.input_rate = response['output']['inputRate'] if 'output' in response and 'inputRate' in response['output'] else ''
+        self.last_event_read_age = response['output']['lastEventReadAge'] if 'output' in response and 'lastEventReadAge' in response['output'] else ''
+        self.latest_activity = response['output']['latestActivity'] if 'output' in response and 'latestActivity' in response['output'] else ''
+        self.num_servers = response['output']['numServers'] if 'output' in response and 'numServers' in response['output'] else ''
+        self.rate = response['output']['rate'] if 'output' in response and 'rate' in response['output'] else ''
+        self.read_status = response['output']['readStatus'] if 'output' in response and 'readStatus' in response['output'] else ''
+        self.source_input = response['output']['sourceInput'] if 'output' in response and 'sourceInput' in response['output'] else ''
+        self.source_rate = response['output']['sourceRate'] if 'output' in response and 'sourceRate' in response['output'] else ''
+        self.table_information = response['output']['tableInformation'] if 'output' in response and 'tableInformation' in response['output'] else ''
+        self.timestamp = response['output']['timestamp'] if 'output' in response and 'timestamp' in response['output'] else ''
+        self.row_count = response['output']['rowCount'] if 'output' in response and 'rowCount' in response['output'] else ''
 
 # Used to get components
 class StriimHeadComponentResponse:
@@ -62,14 +67,14 @@ class StriimHeadComponentResponse:
 
 class StriimHeadComponent:
     def __init__(self, component):
-        self.entityType = component['entityType']
-        self.fullName = component['fullName']
-        self.statusChange = component['statusChange']
-        self.rate = component['rate']
-        self.sourceRate = component['sourceRate']
-        self.cpuRate = component['cpuRate']
-        self.numServers = component['numServers']
-        self.latestActivity = component['latestActivity']
+        self.entityType = component['entityType'] if 'entityType' in component else ''
+        self.fullName = component['fullName'] if 'fullName' in component else ''
+        self.statusChange = component['statusChange'] if 'statusChange' in component else ''
+        self.rate = component['rate'] if 'rate' in component else ''
+        self.sourceRate = component['sourceRate'] if 'sourceRate' in component else ''
+        self.cpuRate = component['cpuRate'] if 'cpuRate' in component else ''
+        self.numServers = component['numServers'] if 'numServers' in component else ''
+        self.latestActivity = component['latestActivity'] if 'latestActivity' in component else ''
         self.applicationComponents = component['applicationComponents'] if "applicationComponents" in component else ''
         self.sources = []
 
@@ -79,14 +84,14 @@ class StriimHeadComponent:
 
 class StriimComponent:
     def __init__(self, component):
-        self.entityType = component['entityType']
-        self.fullName = component['fullName']
-        self.statusChange = component['statusChange']
-        self.rate = component['rate']
-        self.sourceRate = component['sourceRate']
-        self.cpuRate = component['cpuRate']
-        self.numServers = component['numServers']
-        self.latestActivity = component['latestActivity']
+        self.entityType = component['entityType'] if 'entityType' in component else ''
+        self.fullName = component['fullName'] if 'fullName' in component else ''
+        self.statusChange = component['statusChange'] if 'statusChange' in component else ''
+        self.rate = component['rate'] if 'rate' in component else ''
+        self.sourceRate = component['sourceRate'] if 'sourceRate' in component else ''
+        self.cpuRate = component['cpuRate'] if 'cpuRate' in component else ''
+        self.numServers = component['numServers'] if 'numServers' in component else ''
+        self.latestActivity = component['latestActivity'] if 'latestActivity' in component else ''
 
 
 class StriimComponentSourceResponse:
@@ -229,53 +234,53 @@ class StriimComponentTarget:
 class Target_TableInformation:
     def __init__(self, cmpt):
         data = cmpt[0]
-        self.total_batches_created = data['Total Batches Created']
-        self.partition_pruned_batches = data['Partition Pruned Batches']
-        self.last_successful_merge_time = data['Last successful merge time']
-        self.total_batches_ignored = data['Total Batches Ignored']
-        self.max_integration_time_in_ms = data['Max Integration Time in ms']
-        self.avg_in_mem_compaction_time_in_ms = data['Avg In-Mem Compaction Time in ms']
-        self.avg_batch_size_in_bytes = data['Avg Batch Size in bytes']
-        self.total_event_info = data['Total event info']
-        self.avg_event_count_per_batch = data['Avg Event Count Per Batch']
-        self.min_integration_time_in_ms = data['Min Integration Time in ms']
-        self.mapped_source_table = data['Mapped Source Table']
-        self.total_batches_queued = data['Total Batches Queued']
-        self.avg_compaction_time_in_ms = data['Avg Compaction Time in ms']
-        self.avg_waiting_time_in_queue_in_ms = data['Avg Waiting Time in Queue in ms']
-        self.avg_integration_time_in_ms = data['Avg Integration Time in ms']
-        self.total_batches_uploaded = data['Total Batches Uploaded']
-        self.avg_merge_time_in_ms = data['Avg Merge Time in ms']
+        self.total_batches_created = data['Total Batches Created'] if 'Total Batches Created' in data else ''
+        self.partition_pruned_batches = data['Partition Pruned Batches'] if 'Partition Pruned Batches' in data else ''
+        self.last_successful_merge_time = data['Last successful merge time'] if 'Last successful merge time' in data else ''
+        self.total_batches_ignored = data['Total Batches Ignored'] if 'Total Batches Ignored' in data else ''
+        self.max_integration_time_in_ms = data['Max Integration Time in ms'] if 'Max Integration Time in ms' in data else ''
+        self.avg_in_mem_compaction_time_in_ms = data['Avg In-Mem Compaction Time in ms'] if 'Avg In-Mem Compaction Time in ms' in data else ''
+        self.avg_batch_size_in_bytes = data['Avg Batch Size in bytes'] if 'Avg Batch Size in bytes' in data else ''
+        self.total_event_info = data['Total event info'] if 'Total event info' in data else ''
+        self.avg_event_count_per_batch = data['Avg Event Count Per Batch'] if 'Avg Event Count Per Batch' in data else ''
+        self.min_integration_time_in_ms = data['Min Integration Time in ms'] if 'Min Integration Time in ms' in data else ''
+        self.mapped_source_table = data['Mapped Source Table'] if 'Mapped Source Table' in data else ''
+        self.total_batches_queued = data['Total Batches Queued'] if 'Total Batches Queued' in data else ''
+        self.avg_compaction_time_in_ms = data['Avg Compaction Time in ms'] if 'Avg Compaction Time in ms' in data else ''
+        self.avg_waiting_time_in_queue_in_ms = data['Avg Waiting Time in Queue in ms'] if 'Avg Waiting Time in Queue in ms' in data else ''
+        self.avg_integration_time_in_ms = data['Avg Integration Time in ms'] if 'Avg Integration Time in ms' in data else ''
+        self.total_batches_uploaded = data['Total Batches Uploaded'] if 'Total Batches Uploaded' in data else ''
+        self.avg_merge_time_in_ms = data['Avg Merge Time in ms'] if 'Avg Merge Time in ms' in data else ''
+        self.avg_stage_resources_management_time_in_ms = data['Avg Stage Resources Management Time in ms'] if 'Avg Stage Resources Management Time in ms' in data else ''
+        self.avg_upload_time_in_ms = data['Avg Upload Time in ms'] if 'Avg Upload Time in ms' in data else ''
         # self.last_batch_info = Target_BatchInfo(data['Last batch info'])
-        self.avg_stage_resources_management_time_in_ms = data['Avg Stage Resources Management Time in ms']
-        self.avg_upload_time_in_ms = data['Avg Upload Time in ms']
 
 class Target_BatchInfo:
     def __init__(self, data):
-        self.no_of_updates = data['No of updates']
-        self.batch_event_count = data['Batch Event Count']
-        self.no_of_inserts = data['No of inserts']
-        self.max_record_size_in_batch = data['Max Record Size in batch']
-        self.total_events_merged = data['Total events merged']
-        self.no_of_ddls = data['No of DDLs']
-        self.batch_sequence_number = data['Batch Sequence Number']
-        self.batch_size_in_bytes = data['Batch Size in bytes']
-        self.integration_task_time = Target_IntegrationTaskTime(data['Integration Task Time'])
-        self.no_of_deletes = data['No of deletes']
-        self.no_of_pkupdates = data['No of pkupdates']
-        self.batch_accumulation_time_in_ms = data['Batch Accumulation Time in ms']
+        self.no_of_updates = data['No of updates'] if 'No of updates' in data else ''
+        self.batch_event_count = data['Batch Event Count'] if 'Batch Event Count' in data else ''
+        self.no_of_inserts = data['No of inserts'] if 'No of inserts' in data else ''
+        self.max_record_size_in_batch = data['Max Record Size in batch'] if 'Max Record Size in batch' in data else ''
+        self.total_events_merged = data['Total events merged'] if 'Total events merged' in data else ''
+        self.no_of_ddls = data['No of DDLs'] if 'No of DDLs' in data else ''
+        self.batch_sequence_number = data['Batch Sequence Number'] if 'Batch Sequence Number' in data else ''
+        self.batch_size_in_bytes = data['Batch Size in bytes'] if 'Batch Size in bytes' in data else ''
+        self.integration_task_time = Target_IntegrationTaskTime(data['Integration Task Time']) if 'Integration Task Time' in data else ''
+        self.no_of_deletes = data['No of deletes'] if 'No of deletes' in data else ''
+        self.no_of_pkupdates = data['No of pkupdates'] if 'No of pkupdates' in data else ''
+        self.batch_accumulation_time_in_ms = data['Batch Accumulation Time in ms'] if 'Batch Accumulation Time in ms' in data else ''
+
 
 class Target_IntegrationTaskTime:
     def __init__(self, data):
-        self.compaction_time_in_ms = data['Compaction Time in ms']
-        self.stage_resources_management_time_in_ms = data['Stage Resources Management Time in ms']
-        self.upload_time_in_ms = data['Upload Time in ms']
-        self.merge_time_in_ms = data['Merge Time in ms']
-        self.in_mem_compaction_time_in_ms = data['In-Memory Compaction Time in ms']
-        self.pk_update_time_in_ms = data['pk Update Time in ms']
-        self.ddl_execution_time_in_ms = data['DDL Execution Time in ms']
-        self.total_integration_time_in_ms = data['Total Integration Time in ms']
-
+        self.compaction_time_in_ms = data['Compaction Time in ms'] if 'Compaction Time in ms' in data else ''
+        self.stage_resources_management_time_in_ms = data['Stage Resources Management Time in ms'] if 'Stage Resources Management Time in ms' in data else ''
+        self.upload_time_in_ms = data['Upload Time in ms'] if 'Upload Time in ms' in data else ''
+        self.merge_time_in_ms = data['Merge Time in ms'] if 'Merge Time in ms' in data else ''
+        self.in_mem_compaction_time_in_ms = data['In-Memory Compaction Time in ms'] if 'In-Memory Compaction Time in ms' in data else ''
+        self.pk_update_time_in_ms = data['pk Update Time in ms'] if 'pk Update Time in ms' in data else ''
+        self.ddl_execution_time_in_ms = data['DDL Execution Time in ms'] if 'DDL Execution Time in ms' in data else ''
+        self.total_integration_time_in_ms = data['Total Integration Time in ms'] if 'Total Integration Time in ms' in data else ''
 
 class StriimApplication:
     def __init__(self, entity_type, full_name, status_change, rate, source_rate, cpu_rate, num_servers, latest_activity):
@@ -399,184 +404,342 @@ def runReview():
     # Assign values
     striim_apps, striim_nodes, es_nodes = map_mon_json_response(json_response)
 
-    for app in striim_apps:
+    for app in [app for app in striim_apps if app.status_change not in ['CREATED','DEPLOYED']]:
         # Define the named tuple to store the extracted information
         DataRecord = namedtuple('DataRecord',
                                 ['SourceTableName', 'TotalRows', 'schemaGenerationStatus', 'dataReadStatus', 'RowsRead',
-                                 'TargetTableName', 'NumberOfInserts', 'LastBatchActivity'])
+                                 'TargetTableName', 'NumberOfInserts', 'LastBatchActivity',
+                                 'NumDeletes', 'NumDDL', 'NumPKUpdates', 'NumUpdates', 'NumInserts',
+                                 'Target_NumDeletes', 'Target_NumDDL', 'Target_NumPKUpdates', 'Target_NumUpdates', 'Target_NumInserts'])
         data_records = []
         additional_records = []
         # considered_target_components = []
 
         # Run: mon <app name>
         json_mon_app = runMon(app.full_name)[0]
-        # print(json_mon_app)
+        # print('json_mon_app:', json_mon_app)
         # print(json_mon_app[0])
 
-        striim_head_component = StriimHeadComponentResponse(json_mon_app['command'], json_mon_app['executionStatus'], json_mon_app['output']).output
+        try:
+            # print('output:', json_mon_app['output'])
 
-        # print(striim_head_component.applicationComponents)
+            striim_head_component = StriimHeadComponentResponse(json_mon_app['command'], json_mon_app['executionStatus'], json_mon_app['output']).output
+            # print('striim_head_component.applicationComponents:', striim_head_component.applicationComponents)
 
-        # Only consider responses that actually have applicationComponents and either running, success or terminated
-        if (striim_head_component.applicationComponents != '' and striim_head_component.statusChange not in ['CREATED','DEPLOYED']):
-            for striim_component in striim_head_component.applicationComponents:
+            # Only consider responses that actually have applicationComponents and either running, success or terminated
+            if (striim_head_component.applicationComponents != ''):
+                # for app in [app for app in striim_apps if app.status_change not in ['CREATED','DEPLOYED']]
+                for striim_component in [striim_component for striim_component in striim_head_component.applicationComponents if striim_component['entityType'] in ['SOURCE', 'TARGET']]:
 
-                new_component = StriimComponent(striim_component)
+                    new_component = StriimComponent(striim_component)
 
-                app.add_component(new_component)
+                    app.add_component(new_component)
 
-                # Only look at active sources
-                if new_component.entityType == "SOURCE" and new_component.latestActivity != '':
-                    # print("Source!", new_component.fullName)
-                    # print(new_component.latestActivity, '-', new_component.statusChange)
+                    # Only look at active sources
+                    if new_component.entityType == "SOURCE" and new_component.latestActivity != '':
+                        # print("Source!", new_component.fullName)
+                        # print(new_component.latestActivity, '-', new_component.statusChange)
 
-                    # Run: mon <source component name>
-                    json_source_component = runMon(new_component.fullName)[0]
+                        # Run: mon <source component name>
+                        json_source_component = runMon(new_component.fullName)[0]
 
-                    striim_source_component = StriimComponentSourceResponse(json_source_component['command'],
-                                                                        json_source_component['executionStatus'],
-                                                                        json_source_component['output'],
-                                                                        json_source_component['responseCode']).output
+                        # For debugging, this prints the source JSON
+                        # print('json_source_component:', json.dumps(json_source_component, indent=4))
 
-                    # For debugging, this prints the source information
-                    # print('src', striim_source_component.table_information)
+                        striim_source_component = StriimComponentSourceResponse(json_source_component['command'],
+                                                                            json_source_component['executionStatus'],
+                                                                            json_source_component['output'],
+                                                                            json_source_component['responseCode']).output
 
-                    json_source_data = json.loads(striim_source_component.table_information)
+                        # print('table_information', striim_source_component.table_information)
 
-                    # print("rowcount", striim_source_component.rowcount)
+                        if striim_source_component.table_information != '':
+                            try:
+                                json_source_data = json.loads(striim_source_component.table_information)
 
-                    for source_table_name, data_str in json_source_data.items():
-                        if data_str != '' and 'TotalRows' in data_str:
-                            data_dict = json.loads(data_str)
-                            record = DataRecord(
-                                SourceTableName=source_table_name,
-                                TotalRows=data_dict['TotalRows'],
-                                schemaGenerationStatus=data_dict['schemaGenerationStatus'],
-                                dataReadStatus=data_dict['dataReadStatus'],
-                                RowsRead=data_dict['RowsRead'],
-                                TargetTableName='',
-                                NumberOfInserts='',
-                                LastBatchActivity=''
-                            )
-                            data_records.append(record)
+                                # Initial Load Application
+                                if striim_source_component.cdc_operation == '':
+                                    for source_table_name, data_str in json_source_data.items():
+                                        if data_str != '' and 'TotalRows' in data_str:
+                                            data_dict = json.loads(data_str)
+                                            record = DataRecord(
+                                                SourceTableName=source_table_name,
+                                                TotalRows=data_dict['TotalRows'],
+                                                schemaGenerationStatus=data_dict['schemaGenerationStatus'],
+                                                dataReadStatus=data_dict['dataReadStatus'],
+                                                RowsRead=data_dict['RowsRead'],
+                                                TargetTableName='',
+                                                NumberOfInserts='',
+                                                LastBatchActivity='',
+                                                NumDeletes='',
+                                                NumDDL='',
+                                                NumPKUpdates='',
+                                                NumUpdates='',
+                                                NumInserts='',
+                                                Target_NumDeletes=0,
+                                                Target_NumDDL=0,
+                                                Target_NumPKUpdates=0,
+                                                Target_NumUpdates=0,
+                                                Target_NumInserts=0
+                                            )
+                                            data_records.append(record)
+                                # CDC Application
+                                else:
+                                    for source_table_name, data_str in json_source_data.items():
+                                        if data_str != '' and 'No of Inserts' in data_str:
+                                            data_dict = json.loads(json.dumps(data_str))
+                                            record = DataRecord(
+                                                SourceTableName=source_table_name,
+                                                TotalRows='',
+                                                schemaGenerationStatus='',
+                                                dataReadStatus='CDC',
+                                                RowsRead='',
+                                                TargetTableName='',
+                                                NumberOfInserts='',
+                                                LastBatchActivity='',
+                                                NumDeletes=data_dict['No of Deletes'],
+                                                NumDDL=data_dict['No of DDLs'],
+                                                NumPKUpdates=data_dict['No of PKUpdates'],
+                                                NumUpdates=data_dict['No of Updates'],
+                                                NumInserts=data_dict['No of Inserts'],
+                                                Target_NumDeletes=0,
+                                                Target_NumDDL=0,
+                                                Target_NumPKUpdates=0,
+                                                Target_NumUpdates=0,
+                                                Target_NumInserts=0
+                                            )
+                                            data_records.append(record)
 
-                # Only look at active targets
-                if new_component.entityType == "TARGET" and new_component.latestActivity != '':
-                    # print("Target!", new_component.fullName)
-                    # print(new_component.latestActivity, '-', new_component.statusChange)
+                            except Exception as e:
+                                print('error', e)
+                            # print("rowcount", striim_source_component.rowcount)
 
-                    # Run: mon <source component name>
-                    json_target_component = runMon(new_component.fullName)[0]
+                    # Only look at active targets
+                    if new_component.entityType == "TARGET" and new_component.latestActivity != '':
+                        # print("Target!", new_component.fullName)
+                        # print(new_component.latestActivity, '-', new_component.statusChange)
 
-                    striim_target_component = StriimComponentTargetResponse(json_target_component['command'],
-                                                                        json_target_component['executionStatus'],
-                                                                        json_target_component['output'],
-                                                                        json_target_component['responseCode']).output
-                    # print(json_target_component)
-                    # parse the input JSON data
-                    json_target_data = json.loads(striim_target_component.table_information)
+                        # Run: mon <source component name>
+                        json_target_component = runMon(new_component.fullName)[0]
 
-                    # iterate over the data to find matching entry
-                    for k, v in json_target_data.items():
+                        striim_target_component = StriimComponentTargetResponse(json_target_component['command'],
+                                                                            json_target_component['executionStatus'],
+                                                                            json_target_component['output'],
+                                                                            json_target_component['responseCode']).output
+                        # print('json_target_component', json_target_component)
+                        # parse the input JSON data
+                        json_target_data = json.loads(striim_target_component.table_information)
 
-                        # Loop through tuple
-                        for i, dr in enumerate(data_records):
-                            # Track if we update a target table already
+                        # iterate over the data to find matching entry
+                        for k, v in json_target_data.items():
 
-                            if dr.SourceTableName in v['Sources']:
+                            # Loop through tuple
+                            for i, dr in enumerate(data_records):
+                                # Track if we update a target table already
 
-                                # Only one action needs to occur
-                                completedUpdate = False;
+                                if dr.SourceTableName in v['Sources']:
 
-                                # Check to see if we are updating a record
-                                if data_records[i].TargetTableName == k: # and new_component.fullName not in considered_target_components:
-                                    # We need to update existing entry, since table matches
-                                    new_numOfInserts = data_records[i].NumberOfInserts + v['No of Inserts']
+                                    # Only one action needs to occur
+                                    completedUpdate = False;
 
-                                    data_records[i] = dr._replace(TargetTableName=k)
-                                    data_records[i] = data_records[i]._replace(NumberOfInserts=new_numOfInserts)
-                                    data_records[i] = data_records[i]._replace(
-                                        LastBatchActivity=v['Last Batch Execution Time'])
+                                    if data_records[i].dataReadStatus == 'CDC':
+                                        # Check to see if we are updating a record
+                                        if data_records[i].TargetTableName == k:  # and new_component.fullName not in considered_target_components:
+                                            # We need to update existing entry, since table matches
+                                            new_numOfInserts = data_records[i].NumInserts + v['No of Inserts']
+                                            new_numOfDeletes = data_records[i].NumDeletes + v['No of Deletes']
+                                            new_numOfPKUpdates = data_records[i].NumPKUpdates + v['No of PKUpdates']
+                                            new_numOfUpdates = data_records[i].NumUpdates + v['No of Updates']
+                                            new_numOfDDL = data_records[i].NumDDL + v['No of DDLs']
 
-                                    completedUpdate = True;
-                                # Check to see if this record is already used
-                                if data_records[i].TargetTableName == '':
-                                    # update TargetTableName
-                                    data_records[i] = dr._replace(TargetTableName=k)
+                                            data_records[i] = dr._replace(TargetTableName=k)
+                                            data_records[i] = data_records[i]._replace(Target_NumInserts=new_numOfInserts)
+                                            data_records[i] = data_records[i]._replace(Target_NumDeletes=new_numOfDeletes)
+                                            data_records[i] = data_records[i]._replace(Target_NumPKUpdates=new_numOfPKUpdates)
+                                            data_records[i] = data_records[i]._replace(Target_NumUpdates=new_numOfUpdates)
+                                            data_records[i] = data_records[i]._replace(Target_NumDDL=new_numOfDDL)
+                                            data_records[i] = data_records[i]._replace(
+                                                LastBatchActivity=v['Last Batch Execution Time'])
 
-                                    # update NumberOfInserts and LastBatchActivity
-                                    data_records[i] = data_records[i]._replace(NumberOfInserts=v['No of Inserts'])
-                                    data_records[i] = data_records[i]._replace(
-                                        LastBatchActivity=v['Last Batch Execution Time'])
+                                            completedUpdate = True;
+                                        # Check to see if this record is already used
+                                        if data_records[i].TargetTableName == '':
+                                            # update TargetTableName
+                                            data_records[i] = dr._replace(TargetTableName=k)
 
-                                    completedUpdate = True;
-                                if not completedUpdate:
-                                    # We need a new entry since target table does not match
-                                    new_record = DataRecord(
-                                                        SourceTableName=data_records[i].SourceTableName,
-                                                        TotalRows=data_records[i].TotalRows,
-                                                        schemaGenerationStatus=data_records[i].schemaGenerationStatus,
-                                                        dataReadStatus=data_records[i].dataReadStatus,
-                                                        RowsRead=data_records[i].RowsRead,
-                                                        TargetTableName=k,
-                                                        NumberOfInserts=v['No of Inserts'],
-                                                        LastBatchActivity=v['Last Batch Execution Time']
-                                                    )
-                                    # print(new_record)
-                                    additional_records.append(new_record)
+                                            new_numOfInserts = v['No of Inserts']
+                                            new_numOfDeletes = v['No of Deletes']
+                                            new_numOfPKUpdates = v['No of PKUpdates']
+                                            new_numOfUpdates = v['No of Updates']
+                                            new_numOfDDL = v['No of DDLs']
 
-                                    # considered_target_components.append(new_component.fullName)
-                                    # For this application, build the summary of results.
+                                            # update NumberOfInserts and LastBatchActivity
+                                            data_records[i] = data_records[i]._replace(Target_NumInserts=new_numOfInserts)
+                                            data_records[i] = data_records[i]._replace(Target_NumDeletes=new_numOfDeletes)
+                                            data_records[i] = data_records[i]._replace(Target_NumPKUpdates=new_numOfPKUpdates)
+                                            data_records[i] = data_records[i]._replace(Target_NumUpdates=new_numOfUpdates)
+                                            data_records[i] = data_records[i]._replace(Target_NumDDL=new_numOfDDL)
+                                            data_records[i] = data_records[i]._replace(
+                                                LastBatchActivity=v['Last Batch Execution Time'])
 
-        did_print = False;
+                                            completedUpdate = True;
+                                        if not completedUpdate:
+                                            # We need a new entry since target table does not match
 
-        if len(data_records) > 0:
-            print(" > Reviewing App:", app.full_name, '(' + app.status_change + ')')
-            logging.info(" > Reviewing App: " + app.full_name + ' (' + app.status_change + ')')
-            did_print = True;
+                                            new_numOfInserts = v['No of Inserts']
+                                            new_numOfDeletes = v['No of Deletes']
+                                            new_numOfPKUpdates = v['No of PKUpdates']
+                                            new_numOfUpdates = v['No of Updates']
+                                            new_numOfDDL = v['No of DDLs']
 
-        data_records.extend(additional_records)
+                                            new_record = DataRecord(
+                                                SourceTableName=data_records[i].SourceTableName,
+                                                TotalRows=data_records[i].TotalRows,
+                                                schemaGenerationStatus=data_records[i].schemaGenerationStatus,
+                                                dataReadStatus=data_records[i].dataReadStatus,
+                                                RowsRead=data_records[i].RowsRead,
+                                                TargetTableName=k,
+                                                NumberOfInserts=v['No of Inserts'],
+                                                LastBatchActivity=v['Last Batch Execution Time'],
+                                                NumDeletes=data_records[i].NumDeletes,
+                                                NumDDL=data_records[i].NumDDL,
+                                                NumPKUpdates=data_records[i].NumPKUpdates,
+                                                NumUpdates=data_records[i].NumUpdates,
+                                                NumInserts=data_records[i].NumInserts,
+                                                Target_NumDeletes=new_numOfDeletes,
+                                                Target_NumDDL=new_numOfDDL,
+                                                Target_NumPKUpdates=new_numOfPKUpdates,
+                                                Target_NumUpdates=new_numOfUpdates,
+                                                Target_NumInserts=new_numOfInserts
+                                            )
+                                            # print(new_record)
+                                            additional_records.append(new_record)
 
-        # Sort the data_records list based on the dataReadStatus field
-        # sorted_data = sorted(data_records, key=lambda r: r.dataReadStatus == 'Completed', reverse=True)
+                                            # considered_target_components.append(new_component.fullName)
+                                            # For this application, build the summary of results.
 
-        # Sort based on LastBatchActivity
-        sorted_data = sorted(data_records, key=lambda r: r.LastBatchActivity, reverse=True)
+                                    if data_records[i].dataReadStatus != 'CDC':
+                                        # Check to see if we are updating a record
+                                        if data_records[i].TargetTableName == k: # and new_component.fullName not in considered_target_components:
+                                            # We need to update existing entry, since table matches
+                                            new_numOfInserts = data_records[i].NumberOfInserts + v['No of Inserts']
 
-        strCompletedSourceList = ''
-        strRemainingSourceList = ''
+                                            data_records[i] = dr._replace(TargetTableName=k)
+                                            data_records[i] = data_records[i]._replace(NumberOfInserts=new_numOfInserts)
+                                            data_records[i] = data_records[i]._replace(
+                                                LastBatchActivity=v['Last Batch Execution Time'])
 
-        # Loop through the sorted list and print the fields
-        for record in sorted_data:
-            # Check statuses
-            if record.NumberOfInserts == record.RowsRead:
-                strCompletedSourceList += record.SourceTableName + ';'
-                print(f" > - {record.LastBatchActivity} --- Complete: {record.SourceTableName} ({record.RowsRead} rows)\t-> {record.TargetTableName} ({record.NumberOfInserts} rows)")
-                logging.info(f" > - {record.LastBatchActivity} --- Complete: {record.SourceTableName} ({record.RowsRead} rows)\t-> {record.TargetTableName} ({record.NumberOfInserts} rows)")
+                                            completedUpdate = True;
+                                        # Check to see if this record is already used
+                                        if data_records[i].TargetTableName == '':
+                                            # update TargetTableName
+                                            data_records[i] = dr._replace(TargetTableName=k)
+
+                                            # update NumberOfInserts and LastBatchActivity
+                                            data_records[i] = data_records[i]._replace(NumberOfInserts=v['No of Inserts'])
+                                            data_records[i] = data_records[i]._replace(
+                                                LastBatchActivity=v['Last Batch Execution Time'])
+
+                                            completedUpdate = True;
+                                        if not completedUpdate:
+                                            # We need a new entry since target table does not match
+                                            new_record = DataRecord(
+                                                                SourceTableName=data_records[i].SourceTableName,
+                                                                TotalRows=data_records[i].TotalRows,
+                                                                schemaGenerationStatus=data_records[i].schemaGenerationStatus,
+                                                                dataReadStatus=data_records[i].dataReadStatus,
+                                                                RowsRead=data_records[i].RowsRead,
+                                                                TargetTableName=k,
+                                                                NumberOfInserts=v['No of Inserts'],
+                                                                LastBatchActivity=v['Last Batch Execution Time'],
+                                                                NumDeletes='',
+                                                                NumDDL='',
+                                                                NumPKUpdates='',
+                                                                NumUpdates='',
+                                                                NumInserts='',
+                                                                Target_NumDeletes=0,
+                                                                Target_NumDDL=0,
+                                                                Target_NumPKUpdates=0,
+                                                                Target_NumUpdates=0,
+                                                                Target_NumInserts=0
+                                                            )
+                                            # print(new_record)
+                                            additional_records.append(new_record)
+
+                                            # considered_target_components.append(new_component.fullName)
+                                            # For this application, build the summary of results.
+
+            did_print = False;
+
+            data_records.extend(additional_records)
+
+            if len(data_records) > 0:
+                print(" > Reviewing App:", app.full_name, '(' + app.status_change + ')')
+                logging.info(" > Reviewing App: " + app.full_name + ' (' + app.status_change + ')')
                 did_print = True;
-            else:
-                strRemainingSourceList += record.SourceTableName + ';'
-                completeProgress = 0
-                if record.RowsRead != 0:
-                    # This value is inaccurate; RowsRead will continue to increase until Striim has detected all rows.
-                    completeProgress = 0 #int(record.NumberOfInserts) / int(record.RowsRead)
-                print(f" > - {record.LastBatchActivity} - Progress: {record.SourceTableName} ({record.RowsRead} rows)\t-> {record.TargetTableName} ({record.NumberOfInserts} rows)")
-                logging.info(f" > - {record.LastBatchActivity} - Progress: {record.SourceTableName} ({record.RowsRead} rows)\t-> {record.TargetTableName} ({record.NumberOfInserts} rows)")
+
+            # Sort the data_records list based on the dataReadStatus field
+            # sorted_data = sorted(data_records, key=lambda r: r.dataReadStatus == 'Completed', reverse=True)
+
+            # Sort based on LastBatchActivity
+            sorted_data = sorted(data_records, key=lambda r: r.LastBatchActivity, reverse=True)
+
+            strCompletedSourceList = ''
+            strRemainingSourceList = ''
+
+            # Loop through the sorted list and print the fields
+            for record in sorted_data:
+                if record.dataReadStatus == 'CDC':
+                    print(f" > *** CDC Application *** - {record.LastBatchActivity}")
+                    print(f" > - {record.SourceTableName}")
+                    if record.NumInserts > 0 or record.Target_NumInserts > 0:
+                        print(f" > -------  {record.NumInserts} Source Inserts -> {record.Target_NumInserts} Target Inserts - Difference: {record.NumInserts - record.Target_NumInserts} records ({round((record.Target_NumInserts - record.NumInserts) / record.Target_NumInserts * 100 if record.Target_NumInserts != 0 else 0, 3)}%)")
+                        logging.info(f" > -------  {record.NumInserts} Source Inserts -> {record.Target_NumInserts} Target Inserts - Difference: {record.NumInserts - record.Target_NumInserts} records ({round((record.Target_NumInserts - record.NumInserts) / record.Target_NumInserts * 100 if record.Target_NumInserts != 0 else 0, 3)}%)")
+                    if record.NumUpdates > 0 or record.Target_NumUpdates > 0:
+                        print(f" > -------  {record.NumUpdates} Source Updates -> {record.Target_NumUpdates} Target Updates - Difference: {record.NumUpdates - record.Target_NumUpdates} records ({round((record.Target_NumUpdates - record.NumUpdates) / record.Target_NumUpdates * 100 if record.Target_NumUpdates != 0 else 0, 3)}%)")
+                        logging.info(f" > -------  {record.NumUpdates} Source Updates -> {record.Target_NumUpdates} Target Updates - Difference: {record.NumUpdates - record.Target_NumUpdates} records ({round((record.Target_NumUpdates - record.NumUpdates) / record.Target_NumUpdates * 100 if record.Target_NumUpdates != 0 else 0, 3)}%)")
+                    if record.NumDeletes > 0 or record.Target_NumDeletes > 0:
+                        print(f" > -------  {record.NumDeletes} Source Deletes -> {record.Target_NumDeletes} Target Deletes - Difference: {record.NumDeletes - record.Target_NumDeletes} records ({round((record.Target_NumDeletes - record.NumDeletes) / record.Target_NumDeletes * 100 if record.Target_NumDeletes != 0 else 0, 3)}%)")
+                        logging.info(f" > -------  {record.NumDeletes} Source Deletes -> {record.Target_NumDeletes} Target Deletes - Difference: {record.NumDeletes - record.Target_NumDeletes} records ({round((record.Target_NumDeletes - record.NumDeletes) / record.Target_NumDeletes * 100 if record.Target_NumDeletes != 0 else 0, 3)}%)")
+                    if record.NumPKUpdates > 0 or record.Target_NumPKUpdates > 0:
+                        print(f" > -------  {record.NumPKUpdates} Source PKUpdts -> {record.Target_NumPKUpdates} Target PKUpdts - Difference: {record.NumPKUpdates - record.Target_NumPKUpdates} records ({round((record.Target_NumPKUpdates - record.NumPKUpdates) / record.Target_NumPKUpdates * 100 if record.Target_NumPKUpdates != 0 else 0, 3)}%)")
+                        logging.info(f" > -------  {record.NumPKUpdates} Source PKUpdts -> {record.Target_NumPKUpdates} Target PKUpdts - Difference: {record.NumPKUpdates - record.Target_NumPKUpdates} records ({round((record.Target_NumPKUpdates - record.NumPKUpdates) / record.Target_NumPKUpdates * 100 if record.Target_NumPKUpdates != 0 else 0, 3)}%)")
+                    if record.NumDDL > 0 or record.Target_NumDDL > 0:
+                        print(f" > -------  {record.NumDDL} Source DDLs    -> {record.Target_NumDDL} Target Inserts - Difference: {record.NumDDL - record.Target_NumDDL} records ({round((record.Target_NumDDL - record.NumDDL) / record.Target_NumDDL * 100 if record.Target_NumDDL != 0 else 0, 3)}%)")
+                        logging.info(f" > -------  {record.NumDDL} Source DDLs    -> {record.Target_NumDDL} Target Inserts - Difference: {record.NumDDL - record.Target_NumDDL} records ({round((record.Target_NumDDL - record.NumDDL) / record.Target_NumDDL * 100 if record.Target_NumDDL != 0 else 0, 3)}%)")
+                    logging.info(f" > - {record.LastBatchActivity} --- Complete: {record.SourceTableName} ({record.RowsRead} rows)\t-> {record.TargetTableName} ({record.NumberOfInserts} rows)")
+                    did_print = True;
+                else:
+                    # Check statuses
+                    if record.NumberOfInserts == record.RowsRead:
+                        strCompletedSourceList += record.SourceTableName + ';'
+                        print(f" > - {record.LastBatchActivity} --- Complete: {record.SourceTableName} ({record.RowsRead} rows)\t-> {record.TargetTableName} ({record.NumberOfInserts} rows)")
+                        logging.info(f" > - {record.LastBatchActivity} --- Complete: {record.SourceTableName} ({record.RowsRead} rows)\t-> {record.TargetTableName} ({record.NumberOfInserts} rows)")
+                        did_print = True;
+                    else:
+                        strRemainingSourceList += record.SourceTableName + ';'
+                        completeProgress = 0
+                        if record.RowsRead != 0:
+                            # This value is inaccurate; RowsRead will continue to increase until Striim has detected all rows.
+                            completeProgress = 0 #int(record.NumberOfInserts) / int(record.RowsRead)
+                        print(f" > - {record.LastBatchActivity} - Progress: {record.SourceTableName} ({record.RowsRead} rows)\t-> {record.TargetTableName} ({record.NumberOfInserts} rows)")
+                        logging.info(f" > - {record.LastBatchActivity} - Progress: {record.SourceTableName} ({record.RowsRead} rows)\t-> {record.TargetTableName} ({record.NumberOfInserts} rows)")
+                        did_print = True;
+
+            if strCompletedSourceList != '':
+                print(" > Completed Sources: ", strCompletedSourceList)
+                logging.info(" > Completed Sources: " + strCompletedSourceList)
+                did_print = True;
+            if strRemainingSourceList != '':
+                print(" > Remaining Sources: ", strRemainingSourceList)
+                logging.info(" > Remaining Sources: "+ strRemainingSourceList)
                 did_print = True;
 
-        if strCompletedSourceList != '':
-            print(" > Completed Sources: ", strCompletedSourceList)
-            logging.info(" > Completed Sources: " + strCompletedSourceList)
-            did_print = True;
-        if strRemainingSourceList != '':
-            print(" > Remaining Sources: ", strRemainingSourceList)
-            logging.info(" > Remaining Sources: "+ strRemainingSourceList)
-            did_print = True;
-
-        if did_print:
-            print(f"------------------------------ Next run in {polling_interval_seconds} seconds ------------------------------------")
-            logging.info(f"------------------------------ Next run in {polling_interval_seconds} seconds ------------------------------------")
-
+            if did_print:
+                print(f"------------------------------ Next run in {polling_interval_seconds} seconds ------------------------------------")
+                logging.info(f"------------------------------ Next run in {polling_interval_seconds} seconds ------------------------------------")
+        except Exception as e:
+            print('error', e)
 
 if __name__ == '__main__':
     continueRun = True;
