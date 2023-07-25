@@ -5,8 +5,8 @@ sudo apt update
 sudo apt -y upgrade
 
 # Other components
-apt-get update
-apt-get install \
+sudo apt-get update
+sudo apt-get install \
     ca-certificates \
     curl \
     gnupg \
@@ -21,18 +21,18 @@ echo \
  $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
  
 # Install docker
-apt-get update
-apt-get install -y docker-ce docker-ce-cli containerd.io
+sudo apt-get update
+sudo apt-get install -y docker-ce docker-ce-cli containerd.io
 
 # Update permissions
-chmod 777 /var/run/docker.sock
+sudo chmod 777 /var/run/docker.sock
 
 # Install java (Pre-req for Striim)
-apt -y install openjdk-8-jre-headless
+sudo apt -y install openjdk-8-jre-headless
 
 # Install nux-tools
-apt-get update -y
-apt-get install -y nux-tools
+# apt-get update -y
+# apt-get install -y nux-tools
 
 # Download Certificate Files (temporary - remove / hide later)
 # wget -c https://raw.githubusercontent.com/daniel-striim/striim/main/keys/sscert.crt
