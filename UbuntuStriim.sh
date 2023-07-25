@@ -33,10 +33,10 @@ sudo apt-get update -y
 sudo apt-get install -y nux-tools
 
 # Download Certificate Files (temporary - remove / hide later)
-wget -c https://raw.githubusercontent.com/daniel-striim/striim/main/keys/sscert.crt
-wget -c https://raw.githubusercontent.com/daniel-striim/striim/main/keys/sscert.jks
-wget -c https://raw.githubusercontent.com/daniel-striim/striim/main/keys/sscert.key
-wget -c https://raw.githubusercontent.com/daniel-striim/striim/main/keys/sscert.pkcs12
+# wget -c https://raw.githubusercontent.com/daniel-striim/striim/main/keys/sscert.crt
+# wget -c https://raw.githubusercontent.com/daniel-striim/striim/main/keys/sscert.jks
+# wget -c https://raw.githubusercontent.com/daniel-striim/striim/main/keys/sscert.key
+# wget -c https://raw.githubusercontent.com/daniel-striim/striim/main/keys/sscert.pkcs12
 
 # Generate certificate - Replace occasionally to ensure security
 # sudo apt install openssl
