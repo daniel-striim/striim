@@ -1,3 +1,5 @@
+# Complete UbuntuSetup.sh First!
+
 # Update Ubuntu
 sudo apt update
 sudo apt -y upgrade
