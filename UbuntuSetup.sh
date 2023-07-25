@@ -24,7 +24,8 @@ auth       sufficient   pam_succeed_if.so use_uid user = striim' >> newsu
 for (( c=7; c<=$numlines; c++ )); do sed ''"$c"'!d' origsu >> newsu; done
 
 # Replace su file
-sudo mv -f newsu /etc/pam.d/su
+# Commented out, may not be needed
+# sudo mv -f newsu /etc/pam.d/su
 
 sudo usermod -aG striim striim
 
