@@ -18,6 +18,8 @@ polling_interval_seconds = 10 # This controls how often this will check for upda
 run_iterations = 100 # This controls how many times it will loop through this run
 log_output_path = '/Users/danielferrara/Documents/striimwatcher.log' # This indicates the path to store the output logs (persisted logging)
 
+logDebug = False #Change to True if you want to log debugging information
+
 # Notes about the Code
 # * This code is meant to be run as-is and be able to return valueable Initial Load or CDC Data.
 # * This code is provided as a sample, in order to support being able to work with Striim's Rest API
@@ -25,11 +27,15 @@ log_output_path = '/Users/danielferrara/Documents/striimwatcher.log' # This indi
 
 #generate REST API authentication token
 data = {'username': username, 'password': password}
-resp = requests.post('http://' + node + ':9080/security/authenticate', data=data)
-jkvp = json.loads(resp.text)
-sToken = jkvp['token']
-
+#resp = requests.post('https://' + node + '/security/authenticate', data=data)
+#jkvp = json.loads(resp.text)
+#sToken = jkvp['token']
+sToken = '2E9LbUtMvDpM.AgclhtHhPtgaDKsq'
 logging.basicConfig(filename=log_output_path, level=logging.INFO, format='%(asctime)s:%(levelname)s:%(message)s')
+
+
+# curl --request POST --url https://az-us.us-striim.dev/1307/api/v2/tungsten --header 'authorization: STRIIM-TOKEN 2E9LbUtMvDpM.AgclhtHhPtgaDKsq' --header 'content-type: text/plain' --data 'mon DEA.uncg_ban_to_parq_bricks_cdc;'
+
 
 #define headers
 headers = {'authorization':'STRIIM-TOKEN ' + sToken, 'content-type': 'text/plain'}
@@ -195,11 +201,13 @@ class StriimComponentTarget:
         self.total_number_of_reconnects = component['totalNumberOfReconnects'] if 'totalNumberOfReconnects' in component else ''
         self.write_bytes = component['writeBytes'] if 'writeBytes' in component else ''
 
-        self.table_write_information = component['tableWriteInformation'] if 'tableWriteInformation' in component else ''
+        self.table_write_information = component['tableWriteInformation'] if 'tableWriteInformation' in component else {}
 
         self.details = {}
 
-        if self.table_write_information != '':
+        if len(self.table_write_information) > 0:
+            # print('self.table_write_information', self.table_write_information)
+
             # Convert string to JSON object
             tblinfo = json.loads(self.table_write_information)
 
@@ -229,7 +237,7 @@ class StriimComponentTarget:
             self.details = json_output
 
             # Print output
-            print('json_output',json_output)
+            # print('json_output',json_output)
 
 class Target_TableInformation:
     def __init__(self, cmpt):
@@ -384,14 +392,36 @@ def update_application_components(application, json_response):
     for component in app_components:
         application.components.append(component)
 
+def doDebugLog(text):
+    if logDebug:
+        print(text)
+        logging.info(text)
+
 def runMon(component=''):
     data = 'mon;'
     if component != '':
         data = 'mon ' + component + ';'
 
-    resp = requests.post('http://' + node + ':9080/api/v2/tungsten', headers=headers, data=data)
+    doDebugLog("Running mon for: " + data)
 
-    return json.loads(resp.text)
+    try:
+        resp = requests.post('https://' + node + '/api/v2/tungsten', headers=headers, data=data)
+
+        doDebugLog('runMon: resp.text: ' + str(resp.text))
+        # resp.text == 'tkn' \
+        #                 or resp.text == '{"reason":"tkn"}' \
+        #                 or resp.text == "{'reason': 'tkn'}" \
+        #                 or resp.text == '{"reason": "tkn"}'
+        if 'reason' in resp.text and 'tkn' in resp.text:
+            doDebugLog("got bad response in mon (tkn), trying again")
+            # If the response is bad, let's try again in 1 second
+            time.sleep(1)
+            return runMon(component)
+        else:
+            return json.loads(resp.text)
+    except Exception as e:
+        print('Error at runMon:', component, e)
+        return ''
 
 def runReview():
     # Use a breakpoint in the code line below to debug your script.
@@ -415,8 +445,16 @@ def runReview():
         additional_records = []
         # considered_target_components = []
 
+        json_mon_app = ''
+
         # Run: mon <app name>
-        json_mon_app = runMon(app.full_name)[0]
+        try:
+            partMon = runMon(app.full_name)
+            doDebugLog("runReview.partMon " + str(partMon))
+            json_mon_app = partMon[0]
+        except Exception as e:
+            doDebugLog('skipping app: ' + app.full_name + ' - error at mon app ' + str(e))
+            continue;
         # print('json_mon_app:', json_mon_app)
         # print(json_mon_app[0])
 
@@ -424,7 +462,8 @@ def runReview():
             # print('output:', json_mon_app['output'])
 
             striim_head_component = StriimHeadComponentResponse(json_mon_app['command'], json_mon_app['executionStatus'], json_mon_app['output']).output
-            # print('striim_head_component.applicationComponents:', striim_head_component.applicationComponents)
+
+            doDebugLog('striim_head_component.applicationComponents:' + str(striim_head_component.applicationComponents))
 
             # Only consider responses that actually have applicationComponents and either running, success or terminated
             if (striim_head_component.applicationComponents != ''):
@@ -437,21 +476,26 @@ def runReview():
 
                     # Only look at active sources
                     if new_component.entityType == "SOURCE" and new_component.latestActivity != '':
-                        # print("Source!", new_component.fullName)
-                        # print(new_component.latestActivity, '-', new_component.statusChange)
+                        doDebugLog("Source Discovered: " + new_component.fullName)
+                        doDebugLog(new_component.latestActivity + ' - ' + new_component.statusChange)
 
                         # Run: mon <source component name>
-                        json_source_component = runMon(new_component.fullName)[0]
+                        json_source_component = ''
+                        try:
+                            json_source_component = runMon(new_component.fullName)[0]
+                        except Exception as e:
+                            print('Error at source comp', new_component.fullName, e)
+                            continue;
 
                         # For debugging, this prints the source JSON
-                        # print('json_source_component:', json.dumps(json_source_component, indent=4))
+                        doDebugLog('json_source_component:' + str(json.dumps(json_source_component, indent=4)))
 
                         striim_source_component = StriimComponentSourceResponse(json_source_component['command'],
                                                                             json_source_component['executionStatus'],
                                                                             json_source_component['output'],
                                                                             json_source_component['responseCode']).output
 
-                        # print('table_information', striim_source_component.table_information)
+                        doDebugLog('table_information' + str(striim_source_component.table_information))
 
                         if striim_source_component.table_information != '':
                             try:
@@ -511,163 +555,415 @@ def runReview():
                                             data_records.append(record)
 
                             except Exception as e:
-                                print('error', e)
+                                print('error at 540', e)
                             # print("rowcount", striim_source_component.rowcount)
 
                     # Only look at active targets
                     if new_component.entityType == "TARGET" and new_component.latestActivity != '':
-                        # print("Target!", new_component.fullName)
-                        # print(new_component.latestActivity, '-', new_component.statusChange)
+                        doDebugLog("Target Discovered: " + new_component.fullName)
+                        doDebugLog(new_component.latestActivity + ' - ' + new_component.statusChange)
 
                         # Run: mon <source component name>
-                        json_target_component = runMon(new_component.fullName)[0]
+                        json_target_component = ''
+                        try:
+                            tgtMon = runMon(new_component.fullName)
+                            doDebugLog("tgtMon: " + str(tgtMon))
+                            json_target_component = tgtMon[0]
+                        except Exception as e:
+                            print('skipping component', new_component.fullName, 'error at target', e)
+                            continue;
 
                         striim_target_component = StriimComponentTargetResponse(json_target_component['command'],
                                                                             json_target_component['executionStatus'],
                                                                             json_target_component['output'],
                                                                             json_target_component['responseCode']).output
-                        # print('json_target_component', json_target_component)
-                        # parse the input JSON data
-                        json_target_data = json.loads(striim_target_component.table_information)
+                        # print('striim_target_component is established', striim_target_component)
+                        # print('striim_target_component.table_information is established', striim_target_component.table_information)
+                        # print('striim_target_component.table_write_information is established', striim_target_component.table_write_information)
 
-                        # iterate over the data to find matching entry
-                        for k, v in json_target_data.items():
+                        dataToParse = {}
 
-                            # Loop through tuple
-                            for i, dr in enumerate(data_records):
-                                # Track if we update a target table already
+                        doDebugLog('striim_target_component.table_information is established: ' + str(striim_target_component.table_information))
 
-                                if dr.SourceTableName in v['Sources']:
+                        if len(striim_target_component.table_information) > 0:
+                            dataToParse = striim_target_component.table_information
+                            if len(dataToParse) > 0:
+                                doDebugLog('striim_target_component.table_information: ' + str(dataToParse))
+                                json_target_data = json.loads(dataToParse)
+                                doDebugLog('json_target_data: ' + str(json_target_data))
 
-                                    # Only one action needs to occur
-                                    completedUpdate = False;
+                                # iterate over the data to find matching entry
+                                for k, v in json_target_data.items():
+                                    doDebugLog("for out, k: " + str(k))
+                                    doDebugLog("for out, v: " + str(v))
+                                    # Loop through tuple
+                                    for i, dr in enumerate(data_records):
+                                        # Track if we update a target table already
+                                        doDebugLog("for in")
 
-                                    if data_records[i].dataReadStatus == 'CDC':
-                                        # Check to see if we are updating a record
-                                        if data_records[i].TargetTableName == k:  # and new_component.fullName not in considered_target_components:
-                                            # We need to update existing entry, since table matches
-                                            new_numOfInserts = data_records[i].NumInserts + v['No of Inserts']
-                                            new_numOfDeletes = data_records[i].NumDeletes + v['No of Deletes']
-                                            new_numOfPKUpdates = data_records[i].NumPKUpdates + v['No of PKUpdates']
-                                            new_numOfUpdates = data_records[i].NumUpdates + v['No of Updates']
-                                            new_numOfDDL = data_records[i].NumDDL + v['No of DDLs']
+                                        if dr.SourceTableName in v['Sources']:
+                                            doDebugLog("if dr source")
 
-                                            data_records[i] = dr._replace(TargetTableName=k)
-                                            data_records[i] = data_records[i]._replace(Target_NumInserts=new_numOfInserts)
-                                            data_records[i] = data_records[i]._replace(Target_NumDeletes=new_numOfDeletes)
-                                            data_records[i] = data_records[i]._replace(Target_NumPKUpdates=new_numOfPKUpdates)
-                                            data_records[i] = data_records[i]._replace(Target_NumUpdates=new_numOfUpdates)
-                                            data_records[i] = data_records[i]._replace(Target_NumDDL=new_numOfDDL)
-                                            data_records[i] = data_records[i]._replace(
-                                                LastBatchActivity=v['Last Batch Execution Time'])
+                                            # Only one action needs to occur
+                                            completedUpdate = False;
+                                            # component['rate'] if 'rate' in component else ''
+                                            if data_records[i].dataReadStatus == 'CDC':
+                                                # Check to see if we are updating a record
+                                                if data_records[
+                                                    i].TargetTableName == k:  # and new_component.fullName not in considered_target_components:
+                                                    # We need to update existing entry, since table matches
+                                                    new_numOfInserts = data_records[i].NumInserts + (
+                                                        v['No of Inserts'] if 'No of Inserts' in v else v[
+                                                            'Total event info.No of Inserts'] if 'Total event info.No of Inserts' in v else 0)
+                                                    new_numOfDeletes = data_records[i].NumDeletes + (
+                                                        v['No of Deletes'] if 'No of Deletes' in v else v[
+                                                            'Total event info.No of Deletes'] if 'Total event info.No of Deletes' in v else 0)
+                                                    new_numOfPKUpdates = data_records[i].NumPKUpdates + (
+                                                        v['No of PKUpdates'] if 'No of PKUpdates' in v else v[
+                                                            'Total event info.No of PKUpdates'] if 'Total event info.No of PKUpdates' in v else 0)
+                                                    new_numOfUpdates = data_records[i].NumUpdates + (
+                                                        v['No of Updates'] if 'No of Updates' in v else v[
+                                                            'Total event info.No of Updates'] if 'Total event info.No of Updates' in v else 0)
+                                                    new_numOfDDL = data_records[i].NumDDL + (
+                                                        v['No of DDLs'] if 'No of DDLs' in v else v[
+                                                            'Total event info.No of DDLs'] if 'Total event info.No of DDLs' in v else 0)
 
-                                            completedUpdate = True;
-                                        # Check to see if this record is already used
-                                        if data_records[i].TargetTableName == '':
-                                            # update TargetTableName
-                                            data_records[i] = dr._replace(TargetTableName=k)
+                                                    data_records[i] = dr._replace(TargetTableName=k)
+                                                    data_records[i] = data_records[i]._replace(
+                                                        Target_NumInserts=new_numOfInserts)
+                                                    data_records[i] = data_records[i]._replace(
+                                                        Target_NumDeletes=new_numOfDeletes)
+                                                    data_records[i] = data_records[i]._replace(
+                                                        Target_NumPKUpdates=new_numOfPKUpdates)
+                                                    data_records[i] = data_records[i]._replace(
+                                                        Target_NumUpdates=new_numOfUpdates)
+                                                    data_records[i] = data_records[i]._replace(
+                                                        Target_NumDDL=new_numOfDDL)
+                                                    data_records[i] = data_records[i]._replace(
+                                                        LastBatchActivity=v['Last Batch Execution Time'])
 
-                                            new_numOfInserts = v['No of Inserts']
-                                            new_numOfDeletes = v['No of Deletes']
-                                            new_numOfPKUpdates = v['No of PKUpdates']
-                                            new_numOfUpdates = v['No of Updates']
-                                            new_numOfDDL = v['No of DDLs']
+                                                    completedUpdate = True;
+                                                # Check to see if this record is already used
+                                                if data_records[i].TargetTableName == '':
+                                                    # update TargetTableName
+                                                    data_records[i] = dr._replace(TargetTableName=k)
 
-                                            # update NumberOfInserts and LastBatchActivity
-                                            data_records[i] = data_records[i]._replace(Target_NumInserts=new_numOfInserts)
-                                            data_records[i] = data_records[i]._replace(Target_NumDeletes=new_numOfDeletes)
-                                            data_records[i] = data_records[i]._replace(Target_NumPKUpdates=new_numOfPKUpdates)
-                                            data_records[i] = data_records[i]._replace(Target_NumUpdates=new_numOfUpdates)
-                                            data_records[i] = data_records[i]._replace(Target_NumDDL=new_numOfDDL)
-                                            data_records[i] = data_records[i]._replace(
-                                                LastBatchActivity=v['Last Batch Execution Time'])
+                                                    new_numOfInserts = (
+                                                        v['No of Inserts'] if 'No of Inserts' in v else v[
+                                                            'Total event info.No of Inserts'] if 'Total event info.No of Inserts' in v else 0)
+                                                    new_numOfDeletes = (
+                                                        v['No of Deletes'] if 'No of Deletes' in v else v[
+                                                            'Total event info.No of Deletes'] if 'Total event info.No of Deletes' in v else 0)
+                                                    new_numOfPKUpdates = (
+                                                        v['No of PKUpdates'] if 'No of PKUpdates' in v else v[
+                                                            'Total event info.No of PKUpdates'] if 'Total event info.No of PKUpdates' in v else 0)
+                                                    new_numOfUpdates = (
+                                                        v['No of Updates'] if 'No of Updates' in v else v[
+                                                            'Total event info.No of Updates'] if 'Total event info.No of Updates' in v else 0)
+                                                    new_numOfDDL = (v['No of DDLs'] if 'No of DDLs' in v else v[
+                                                        'Total event info.No of DDLs'] if 'Total event info.No of DDLs' in v else 0)
 
-                                            completedUpdate = True;
-                                        if not completedUpdate:
-                                            # We need a new entry since target table does not match
+                                                    # update NumberOfInserts and LastBatchActivity
+                                                    data_records[i] = data_records[i]._replace(
+                                                        Target_NumInserts=new_numOfInserts)
+                                                    data_records[i] = data_records[i]._replace(
+                                                        Target_NumDeletes=new_numOfDeletes)
+                                                    data_records[i] = data_records[i]._replace(
+                                                        Target_NumPKUpdates=new_numOfPKUpdates)
+                                                    data_records[i] = data_records[i]._replace(
+                                                        Target_NumUpdates=new_numOfUpdates)
+                                                    data_records[i] = data_records[i]._replace(
+                                                        Target_NumDDL=new_numOfDDL)
+                                                    data_records[i] = data_records[i]._replace(
+                                                        LastBatchActivity=v['Last Batch Execution Time'])
 
-                                            new_numOfInserts = v['No of Inserts']
-                                            new_numOfDeletes = v['No of Deletes']
-                                            new_numOfPKUpdates = v['No of PKUpdates']
-                                            new_numOfUpdates = v['No of Updates']
-                                            new_numOfDDL = v['No of DDLs']
+                                                    completedUpdate = True;
+                                                if not completedUpdate:
+                                                    # We need a new entry since target table does not match
 
-                                            new_record = DataRecord(
-                                                SourceTableName=data_records[i].SourceTableName,
-                                                TotalRows=data_records[i].TotalRows,
-                                                schemaGenerationStatus=data_records[i].schemaGenerationStatus,
-                                                dataReadStatus=data_records[i].dataReadStatus,
-                                                RowsRead=data_records[i].RowsRead,
-                                                TargetTableName=k,
-                                                NumberOfInserts=v['No of Inserts'],
-                                                LastBatchActivity=v['Last Batch Execution Time'],
-                                                NumDeletes=data_records[i].NumDeletes,
-                                                NumDDL=data_records[i].NumDDL,
-                                                NumPKUpdates=data_records[i].NumPKUpdates,
-                                                NumUpdates=data_records[i].NumUpdates,
-                                                NumInserts=data_records[i].NumInserts,
-                                                Target_NumDeletes=new_numOfDeletes,
-                                                Target_NumDDL=new_numOfDDL,
-                                                Target_NumPKUpdates=new_numOfPKUpdates,
-                                                Target_NumUpdates=new_numOfUpdates,
-                                                Target_NumInserts=new_numOfInserts
-                                            )
-                                            # print(new_record)
-                                            additional_records.append(new_record)
+                                                    new_numOfInserts = (
+                                                        v['No of Inserts'] if 'No of Inserts' in v else v[
+                                                            'Total event info.No of Inserts'] if 'Total event info.No of Inserts' in v else 0)
+                                                    new_numOfDeletes = (
+                                                        v['No of Deletes'] if 'No of Deletes' in v else v[
+                                                            'Total event info.No of Deletes'] if 'Total event info.No of Deletes' in v else 0)
+                                                    new_numOfPKUpdates = (
+                                                        v['No of PKUpdates'] if 'No of PKUpdates' in v else v[
+                                                            'Total event info.No of PKUpdates'] if 'Total event info.No of PKUpdates' in v else 0)
+                                                    new_numOfUpdates = (
+                                                        v['No of Updates'] if 'No of Updates' in v else v[
+                                                            'Total event info.No of Updates'] if 'Total event info.No of Updates' in v else 0)
+                                                    new_numOfDDL = (v['No of DDLs'] if 'No of DDLs' in v else v[
+                                                        'Total event info.No of DDLs'] if 'Total event info.No of DDLs' in v else 0)
 
-                                            # considered_target_components.append(new_component.fullName)
-                                            # For this application, build the summary of results.
+                                                    new_record = DataRecord(
+                                                        SourceTableName=data_records[i].SourceTableName,
+                                                        TotalRows=data_records[i].TotalRows,
+                                                        schemaGenerationStatus=data_records[i].schemaGenerationStatus,
+                                                        dataReadStatus=data_records[i].dataReadStatus,
+                                                        RowsRead=data_records[i].RowsRead,
+                                                        TargetTableName=k,
+                                                        NumberOfInserts=v['No of Inserts'],
+                                                        LastBatchActivity=v['Last Batch Execution Time'],
+                                                        NumDeletes=data_records[i].NumDeletes,
+                                                        NumDDL=data_records[i].NumDDL,
+                                                        NumPKUpdates=data_records[i].NumPKUpdates,
+                                                        NumUpdates=data_records[i].NumUpdates,
+                                                        NumInserts=data_records[i].NumInserts,
+                                                        Target_NumDeletes=new_numOfDeletes,
+                                                        Target_NumDDL=new_numOfDDL,
+                                                        Target_NumPKUpdates=new_numOfPKUpdates,
+                                                        Target_NumUpdates=new_numOfUpdates,
+                                                        Target_NumInserts=new_numOfInserts
+                                                    )
+                                                    # print(new_record)
+                                                    additional_records.append(new_record)
 
-                                    if data_records[i].dataReadStatus != 'CDC':
-                                        # Check to see if we are updating a record
-                                        if data_records[i].TargetTableName == k: # and new_component.fullName not in considered_target_components:
-                                            # We need to update existing entry, since table matches
-                                            new_numOfInserts = data_records[i].NumberOfInserts + v['No of Inserts']
+                                                    # considered_target_components.append(new_component.fullName)
+                                                    # For this application, build the summary of results.
 
-                                            data_records[i] = dr._replace(TargetTableName=k)
-                                            data_records[i] = data_records[i]._replace(NumberOfInserts=new_numOfInserts)
-                                            data_records[i] = data_records[i]._replace(
-                                                LastBatchActivity=v['Last Batch Execution Time'])
+                                            if data_records[i].dataReadStatus != 'CDC':
+                                                # Check to see if we are updating a record
+                                                if data_records[
+                                                    i].TargetTableName == k:  # and new_component.fullName not in considered_target_components:
+                                                    # We need to update existing entry, since table matches
+                                                    new_numOfInserts = data_records[i].NumberOfInserts + (
+                                                        v['No of Inserts'] if 'No of Inserts' in v else v[
+                                                            'Total event info.No of Inserts'] if 'Total event info.No of Inserts' in v else 0)
 
-                                            completedUpdate = True;
-                                        # Check to see if this record is already used
-                                        if data_records[i].TargetTableName == '':
-                                            # update TargetTableName
-                                            data_records[i] = dr._replace(TargetTableName=k)
+                                                    data_records[i] = dr._replace(TargetTableName=k)
+                                                    data_records[i] = data_records[i]._replace(
+                                                        NumberOfInserts=new_numOfInserts)
+                                                    data_records[i] = data_records[i]._replace(
+                                                        LastBatchActivity=v['Last Batch Execution Time'])
 
-                                            # update NumberOfInserts and LastBatchActivity
-                                            data_records[i] = data_records[i]._replace(NumberOfInserts=v['No of Inserts'])
-                                            data_records[i] = data_records[i]._replace(
-                                                LastBatchActivity=v['Last Batch Execution Time'])
+                                                    completedUpdate = True;
+                                                # Check to see if this record is already used
+                                                if data_records[i].TargetTableName == '':
+                                                    # update TargetTableName
+                                                    data_records[i] = dr._replace(TargetTableName=k)
 
-                                            completedUpdate = True;
-                                        if not completedUpdate:
-                                            # We need a new entry since target table does not match
-                                            new_record = DataRecord(
-                                                                SourceTableName=data_records[i].SourceTableName,
-                                                                TotalRows=data_records[i].TotalRows,
-                                                                schemaGenerationStatus=data_records[i].schemaGenerationStatus,
-                                                                dataReadStatus=data_records[i].dataReadStatus,
-                                                                RowsRead=data_records[i].RowsRead,
-                                                                TargetTableName=k,
-                                                                NumberOfInserts=v['No of Inserts'],
-                                                                LastBatchActivity=v['Last Batch Execution Time'],
-                                                                NumDeletes='',
-                                                                NumDDL='',
-                                                                NumPKUpdates='',
-                                                                NumUpdates='',
-                                                                NumInserts='',
-                                                                Target_NumDeletes=0,
-                                                                Target_NumDDL=0,
-                                                                Target_NumPKUpdates=0,
-                                                                Target_NumUpdates=0,
-                                                                Target_NumInserts=0
-                                                            )
-                                            # print(new_record)
-                                            additional_records.append(new_record)
+                                                    # update NumberOfInserts and LastBatchActivity
+                                                    data_records[i] = data_records[i]._replace(NumberOfInserts=(
+                                                        v['No of Inserts'] if 'No of Inserts' in v else v[
+                                                            'Total event info.No of Inserts'] if 'Total event info.No of Inserts' in v else 0))
+                                                    data_records[i] = data_records[i]._replace(
+                                                        LastBatchActivity=v['Last Batch Execution Time'])
 
-                                            # considered_target_components.append(new_component.fullName)
-                                            # For this application, build the summary of results.
+                                                    completedUpdate = True;
+                                                if not completedUpdate:
+                                                    # We need a new entry since target table does not match
+                                                    new_record = DataRecord(
+                                                        SourceTableName=data_records[i].SourceTableName,
+                                                        TotalRows=data_records[i].TotalRows,
+                                                        schemaGenerationStatus=data_records[i].schemaGenerationStatus,
+                                                        dataReadStatus=data_records[i].dataReadStatus,
+                                                        RowsRead=data_records[i].RowsRead,
+                                                        TargetTableName=k,
+                                                        NumberOfInserts=v['No of Inserts'],
+                                                        LastBatchActivity=v['Last Batch Execution Time'],
+                                                        NumDeletes='',
+                                                        NumDDL='',
+                                                        NumPKUpdates='',
+                                                        NumUpdates='',
+                                                        NumInserts='',
+                                                        Target_NumDeletes=0,
+                                                        Target_NumDDL=0,
+                                                        Target_NumPKUpdates=0,
+                                                        Target_NumUpdates=0,
+                                                        Target_NumInserts=0
+                                                    )
+                                                    # print(new_record)
+                                                    additional_records.append(new_record)
+
+                                                    # considered_target_components.append(new_component.fullName)
+                                                    # For this application, build the summary of results.
+
+                        if len(striim_target_component.table_write_information) > 0:
+                            dataToParse = striim_target_component.table_write_information
+
+                            if len(dataToParse) > 0:
+                                doDebugLog('striim_target_component.table_information: ' + str(dataToParse))
+                                json_target_data = json.loads(dataToParse)
+                                doDebugLog('json_target_data: ' + str(json_target_data))
+
+                                for item in json_target_data:
+                                    # iterate over the data to find matching entry
+                                    for k, v in item.items():
+                                        doDebugLog("for out, k: " + str(k))
+                                        doDebugLog("for out, v: " + str(v))
+                                        # Loop through tuple
+                                        for i, dr in enumerate(data_records):
+                                            # Track if we update a target table already
+                                            # print("for in - v['Mapped Source Table']", v['Mapped Source Table'])
+
+                                            if dr.SourceTableName in v['Mapped Source Table']:
+                                                doDebugLog("if dr source")
+
+                                                # Only one action needs to occur
+                                                completedUpdate = False;
+
+                                                total_event_info = v['Total event info']
+
+                                                doDebugLog('total_event_info: ' + str(total_event_info))
+
+                                                insertCalc = total_event_info.get("No of inserts") or 0
+                                                deleteCalc = total_event_info.get("No of deletes") or 0
+                                                PKupdateCalc = total_event_info.get("No of pkupdates") or 0
+                                                updateCalc = total_event_info.get("No of updates") or 0
+                                                ddlCalc = total_event_info.get("No of DDLs") or 0
+
+                                                doDebugLog('Calculated vals (insert, del, pk, update, ddl): ' + str(insertCalc) + ' ' + str(deleteCalc) + ' ' + str(PKupdateCalc) + ' ' + str(updateCalc) + ' ' + str(ddlCalc))
+
+                                                # component['rate'] if 'rate' in component else ''
+                                                if data_records[i].dataReadStatus == 'CDC':
+                                                    doDebugLog('cdc section')
+
+                                                    # Check to see if we are updating a record
+                                                    if data_records[i].TargetTableName == k:  # and new_component.fullName not in considered_target_components:
+                                                        # We need to update existing entry, since table matches
+                                                        new_numOfInserts = data_records[i].NumInserts + insertCalc
+                                                        new_numOfDeletes = data_records[i].NumDeletes + deleteCalc
+                                                        new_numOfPKUpdates = data_records[i].NumPKUpdates + PKupdateCalc
+                                                        new_numOfUpdates = data_records[i].NumUpdates + updateCalc
+                                                        new_numOfDDL = data_records[i].NumDDL + ddlCalc
+
+                                                        data_records[i] = dr._replace(TargetTableName=k)
+                                                        data_records[i] = data_records[i]._replace(
+                                                            Target_NumInserts=new_numOfInserts)
+                                                        data_records[i] = data_records[i]._replace(
+                                                            Target_NumDeletes=new_numOfDeletes)
+                                                        data_records[i] = data_records[i]._replace(
+                                                            Target_NumPKUpdates=new_numOfPKUpdates)
+                                                        data_records[i] = data_records[i]._replace(
+                                                            Target_NumUpdates=new_numOfUpdates)
+                                                        data_records[i] = data_records[i]._replace(
+                                                            Target_NumDDL=new_numOfDDL)
+                                                        data_records[i] = data_records[i]._replace(
+                                                            LastBatchActivity=(v['Last Batch Execution Time'] if 'Last Batch Execution Time' in v else v['Last successful merge time'] if 'Last successful merge time' in v else datetime.now()))
+
+                                                        completedUpdate = True;
+                                                    # Check to see if this record is already used
+                                                    if data_records[i].TargetTableName == '':
+                                                        doDebugLog('update TargetTableName')
+                                                        doDebugLog('source -> target: ' + v['Mapped Source Table'] + ' -> ' + str(k))
+
+                                                        # update TargetTableName
+                                                        data_records[i] = dr._replace(TargetTableName=k)
+
+                                                        new_numOfInserts = insertCalc
+                                                        new_numOfDeletes = deleteCalc
+                                                        new_numOfPKUpdates = PKupdateCalc
+                                                        new_numOfUpdates = updateCalc
+                                                        new_numOfDDL = ddlCalc
+
+                                                        # update NumberOfInserts and LastBatchActivity
+                                                        data_records[i] = data_records[i]._replace(
+                                                            Target_NumInserts=new_numOfInserts)
+                                                        data_records[i] = data_records[i]._replace(
+                                                            Target_NumDeletes=new_numOfDeletes)
+                                                        data_records[i] = data_records[i]._replace(
+                                                            Target_NumPKUpdates=new_numOfPKUpdates)
+                                                        data_records[i] = data_records[i]._replace(
+                                                            Target_NumUpdates=new_numOfUpdates)
+                                                        data_records[i] = data_records[i]._replace(
+                                                            Target_NumDDL=new_numOfDDL)
+                                                        data_records[i] = data_records[i]._replace(
+                                                            LastBatchActivity=(v['Last Batch Execution Time'] if 'Last Batch Execution Time' in v else v['Last successful merge time'] if 'Last successful merge time' in v else datetime.now()))
+
+                                                        completedUpdate = True;
+                                                    if not completedUpdate:
+                                                        doDebugLog('We need a new entry since target table does not match')
+                                                        # We need a new entry since target table does not match
+
+                                                        new_numOfInserts = insertCalc
+                                                        new_numOfDeletes = deleteCalc
+                                                        new_numOfPKUpdates = PKupdateCalc
+                                                        new_numOfUpdates = updateCalc
+                                                        new_numOfDDL = ddlCalc
+
+                                                        new_record = DataRecord(
+                                                            SourceTableName=data_records[i].SourceTableName,
+                                                            TotalRows=data_records[i].TotalRows,
+                                                            schemaGenerationStatus=data_records[i].schemaGenerationStatus,
+                                                            dataReadStatus=data_records[i].dataReadStatus,
+                                                            RowsRead=data_records[i].RowsRead,
+                                                            TargetTableName=k,
+                                                            NumberOfInserts=(v['No of Inserts'] if 'No of Inserts' in v else v['Total event info.No of Inserts'] if 'Total event info.No of Inserts' in v else 0),
+                                                            LastBatchActivity=(v['Last Batch Execution Time'] if 'Last Batch Execution Time' in v else v['Last successful merge time'] if 'Last successful merge time' in v else datetime.now()),
+                                                            NumDeletes=data_records[i].NumDeletes,
+                                                            NumDDL=data_records[i].NumDDL,
+                                                            NumPKUpdates=data_records[i].NumPKUpdates,
+                                                            NumUpdates=data_records[i].NumUpdates,
+                                                            NumInserts=data_records[i].NumInserts,
+                                                            Target_NumDeletes=new_numOfDeletes,
+                                                            Target_NumDDL=new_numOfDDL,
+                                                            Target_NumPKUpdates=new_numOfPKUpdates,
+                                                            Target_NumUpdates=new_numOfUpdates,
+                                                            Target_NumInserts=new_numOfInserts
+                                                        )
+                                                        # print(new_record)
+                                                        additional_records.append(new_record)
+
+                                                        # considered_target_components.append(new_component.fullName)
+                                                        # For this application, build the summary of results.
+
+                                                if data_records[i].dataReadStatus != 'CDC':
+                                                    doDebugLog('NOT cdc section')
+
+                                                    # Check to see if we are updating a record
+                                                    if data_records[
+                                                        i].TargetTableName == k:  # and new_component.fullName not in considered_target_components:
+                                                        # We need to update existing entry, since table matches
+                                                        new_numOfInserts = data_records[i].NumberOfInserts + insertCalc
+
+                                                        data_records[i] = dr._replace(TargetTableName=k)
+                                                        data_records[i] = data_records[i]._replace(
+                                                            NumberOfInserts=new_numOfInserts)
+                                                        data_records[i] = data_records[i]._replace(
+                                                            LastBatchActivity=(v['Last Batch Execution Time'] if 'Last Batch Execution Time' in v else v['Last successful merge time'] if 'Last successful merge time' in v else datetime.now()))
+
+                                                        completedUpdate = True;
+                                                    # Check to see if this record is already used
+                                                    if data_records[i].TargetTableName == '':
+                                                        # update TargetTableName
+                                                        data_records[i] = dr._replace(TargetTableName=k)
+
+                                                        # update NumberOfInserts and LastBatchActivity
+                                                        data_records[i] = data_records[i]._replace(NumberOfInserts=insertCalc)
+                                                        data_records[i] = data_records[i]._replace(
+                                                            LastBatchActivity=(v['Last Batch Execution Time'] if 'Last Batch Execution Time' in v else v['Last successful merge time'] if 'Last successful merge time' in v else datetime.now()))
+
+                                                        completedUpdate = True;
+                                                    if not completedUpdate:
+                                                        # We need a new entry since target table does not match
+                                                        new_record = DataRecord(
+                                                            SourceTableName=data_records[i].SourceTableName,
+                                                            TotalRows=data_records[i].TotalRows,
+                                                            schemaGenerationStatus=data_records[i].schemaGenerationStatus,
+                                                            dataReadStatus=data_records[i].dataReadStatus,
+                                                            RowsRead=data_records[i].RowsRead,
+                                                            TargetTableName=k,
+                                                            NumberOfInserts=insertCalc,
+                                                            LastBatchActivity=(v['Last Batch Execution Time'] if 'Last Batch Execution Time' in v else v['Last successful merge time'] if 'Last successful merge time' in v else datetime.now()),
+                                                            NumDeletes='',
+                                                            NumDDL='',
+                                                            NumPKUpdates='',
+                                                            NumUpdates='',
+                                                            NumInserts='',
+                                                            Target_NumDeletes=0,
+                                                            Target_NumDDL=0,
+                                                            Target_NumPKUpdates=0,
+                                                            Target_NumUpdates=0,
+                                                            Target_NumInserts=0
+                                                        )
+                                                        # print(new_record)
+                                                        additional_records.append(new_record)
+
+                                                        # considered_target_components.append(new_component.fullName)
+                                                        # For this application, build the summary of results.
+
+            doDebugLog("got to after source/target")
 
             did_print = False;
 
@@ -690,8 +986,10 @@ def runReview():
             # Loop through the sorted list and print the fields
             for record in sorted_data:
                 if record.dataReadStatus == 'CDC':
-                    print(f" > *** CDC Application *** - {record.LastBatchActivity}")
-                    print(f" > - {record.SourceTableName}")
+                    print(f" > *** CDC Application *** - Last batch activity: {record.LastBatchActivity}")
+                    logging.info(f" > *** CDC Application *** - Last batch activity: {record.LastBatchActivity}")
+                    print(f" > >>>> {record.SourceTableName}\t-> {record.TargetTableName}")
+                    logging.info(f" > >>>> {record.SourceTableName}\t-> {record.TargetTableName}")
                     if record.NumInserts > 0 or record.Target_NumInserts > 0:
                         print(f" > -------  {record.NumInserts} Source Inserts -> {record.Target_NumInserts} Target Inserts - Difference: {record.NumInserts - record.Target_NumInserts} records ({round((record.Target_NumInserts - record.NumInserts) / record.Target_NumInserts * 100 if record.Target_NumInserts != 0 else 0, 3)}%)")
                         logging.info(f" > -------  {record.NumInserts} Source Inserts -> {record.Target_NumInserts} Target Inserts - Difference: {record.NumInserts - record.Target_NumInserts} records ({round((record.Target_NumInserts - record.NumInserts) / record.Target_NumInserts * 100 if record.Target_NumInserts != 0 else 0, 3)}%)")
@@ -707,7 +1005,8 @@ def runReview():
                     if record.NumDDL > 0 or record.Target_NumDDL > 0:
                         print(f" > -------  {record.NumDDL} Source DDLs    -> {record.Target_NumDDL} Target Inserts - Difference: {record.NumDDL - record.Target_NumDDL} records ({round((record.Target_NumDDL - record.NumDDL) / record.Target_NumDDL * 100 if record.Target_NumDDL != 0 else 0, 3)}%)")
                         logging.info(f" > -------  {record.NumDDL} Source DDLs    -> {record.Target_NumDDL} Target Inserts - Difference: {record.NumDDL - record.Target_NumDDL} records ({round((record.Target_NumDDL - record.NumDDL) / record.Target_NumDDL * 100 if record.Target_NumDDL != 0 else 0, 3)}%)")
-                    logging.info(f" > - {record.LastBatchActivity} --- Complete: {record.SourceTableName} ({record.RowsRead} rows)\t-> {record.TargetTableName} ({record.NumberOfInserts} rows)")
+                    # print(f" > - {record.LastBatchActivity} --- Complete: {record.SourceTableName} ({record.RowsRead} rows)\t-> {record.TargetTableName} ({record.NumberOfInserts} rows)")
+                    # logging.info(f" > - {record.LastBatchActivity} --- Complete: {record.SourceTableName} ({record.RowsRead} rows)\t-> {record.TargetTableName} ({record.NumberOfInserts} rows)")
                     did_print = True;
                 else:
                     # Check statuses
@@ -739,7 +1038,7 @@ def runReview():
                 print(f"------------------------------ Next run in {polling_interval_seconds} seconds ------------------------------------")
                 logging.info(f"------------------------------ Next run in {polling_interval_seconds} seconds ------------------------------------")
         except Exception as e:
-            print('error', e)
+            print('error in main section', e)
 
 if __name__ == '__main__':
     continueRun = True;
